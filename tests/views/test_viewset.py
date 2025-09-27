@@ -28,10 +28,6 @@ class TestViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             now = timezone.now()
             qs = qs.filter(is_active=True, is_registered=False, start_at__lte=now, end_at__gte=now)
 
-        q = self.request.query_params.get('q')
-        if q:
-            qs = qs.filter(Q(title__icontains=q))
-
         sort = self.request.query_params.get('sort', 'created')
         if sort == 'popular':
             return qs.order_by('-registrations_count', '-created_at')
@@ -103,7 +99,7 @@ class TestViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         registration.status = 'completed'
         if registration.attempted_at is None:
             registration.attempted_at = now
-        registration.save(update_fields=['status', 'attempted_at', 'updated_at'])
+        registration.save(update_fields=['status', 'attempted_at'])
 
         return Response({
             'registration_id': registration.id,
