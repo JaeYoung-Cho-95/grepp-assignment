@@ -19,11 +19,11 @@ from django.urls import path
 from accounts.views.signUpview import SignUpView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.routers import DefaultRouter
-from tests.views.test_get_viewset import TestViewSet
+from tests.views.test_viewset import TestViewSet
 from courses.views.course_get_viewset import CourseViewSet
 from django.urls import path, include
 
-router = DefaultRouter()
+router = DefaultRouter(trailing_slash=False)
 router.register(r'tests', TestViewSet, basename='test')
 router.register(r'courses', CourseViewSet, basename='course')
 
