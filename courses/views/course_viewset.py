@@ -1,25 +1,24 @@
 from django.db.models import Exists, OuterRef, Q
 from rest_framework import mixins, permissions, viewsets
-from tests.models import Test, TestRegistration
-from tests.serializers.test_list_serializer import TestListSerializer
+from courses.models import Course, CourseRegistration
+from courses.serializers.course_list_serializer import CourseListSerializer
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
-from tests.serializers.test_apply_serializer import TestApplySerializer
+from courses.serializers.course_enroll_serializer import CourseEnrollSerializer
 from payments.models import Payment
 
-
-class TestViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    serializer_class = TestListSerializer
+class CourseViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = CourseListSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        qs = Test.objects.all().annotate(
+        qs = Course.objects.all().annotate(
             is_registered=Exists(
-                TestRegistration.objects.filter(user=user, test_id=OuterRef('pk'))
+                CourseRegistration.objects.filter(user=user, course_id=OuterRef('pk'))
             ),
         )
 
@@ -38,41 +37,41 @@ class TestViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         return qs.order_by('-created_at')
 
 
-    @action(detail=True, methods=['post'], url_path='apply')
+    @action(detail=True, methods=['post'], url_path='enroll')
     def post_queryset(self, request, pk=None):
-        serializer = TestApplySerializer(data=request.data)
+        serializer = CourseEnrollSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
         payment_method = serializer.validated_data['payment_method']
 
         try:
-            test = Test.objects.get(pk=pk)
-        except Test.DoesNotExist:
-            return Response({'detail': '존재하지 않는 시험입니다.'}, status=status.HTTP_404_NOT_FOUND)
+            course = Course.objects.get(pk=pk)
+        except Course.DoesNotExist:
+            return Response({'detail': '존재하지 않는 수업입니다.'}, status=status.HTTP_404_NOT_FOUND)
 
         now = timezone.now()
-        if not (test.is_active and test.start_at <= now <= test.end_at):
-            return Response({'detail': '응시 가능한 시험이 아닙니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (course.is_active and course.start_at <= now <= course.end_at):
+            return Response({'detail': '수업 수강 가능한 수업이 아닙니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 이미 응시 신청 여부 확인
-        exists = TestRegistration.objects.filter(user=request.user, test=test).exists()
+        # 이미 수업 수강 신청 여부 확인
+        exists = CourseRegistration.objects.filter(user=request.user, course=course).exists()
         if exists:
-            return Response({'detail': '이미 응시 신청된 시험입니다.'}, status=status.HTTP_409_CONFLICT)
+            return Response({'detail': '이미 수업 수강 신청된 수업입니다.'}, status=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
-            # 신청 생성
-            test_registration = TestRegistration.objects.create(user=request.user, test=test)
+            # 수업 수강 신청 생성
+            course_registration = CourseRegistration.objects.create(user=request.user, course=course)
 
-            # 결제 생성 (OneToOne: test_registration만 채우고 course_registration은 비움)
+            # 결제 생성 (OneToOne: course_registration만 채우고 course_registration은 비움)
             payment = Payment.objects.create(
-                test_registration=test_registration,
+                course_registration=course_registration,
                 amount=amount,
                 payment_method=payment_method,
                 status='paid',
             )
 
         return Response({
-            'registration_id': test_registration.id,
+            'registration_id': course_registration.id,
             'payment_id': payment.id,
             'status': 'paid',
         }, status=status.HTTP_201_CREATED)

@@ -20,7 +20,7 @@ from accounts.views.signUpview import SignUpView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.routers import DefaultRouter
 from tests.views.test_viewset import TestViewSet
-from courses.views.course_get_viewset import CourseViewSet
+from courses.views.course_viewset import CourseViewSet
 from django.urls import path, include
 
 router = DefaultRouter(trailing_slash=False)
