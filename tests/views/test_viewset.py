@@ -76,3 +76,36 @@ class TestViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             'payment_id': payment.id,
             'status': 'paid',
         }, status=status.HTTP_201_CREATED)
+
+
+    @action(detail=True, methods=['post'], url_path='complete')
+    def complete(self, request, pk=None):
+        try:
+            test = Test.objects.get(pk=pk)
+        except Test.DoesNotExist:
+            return Response({'detail': '존재하지 않는 시험입니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        now = timezone.now()
+        if not (test.is_active and test.start_at <= now <= test.end_at):
+            return Response({'detail': '응시 완료 가능한 시험이 아닙니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            registration = TestRegistration.objects.get(user=request.user, test=test)
+        except TestRegistration.DoesNotExist:
+            return Response({'detail': '응시 신청 이력이 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if registration.status == 'completed':
+            return Response({'detail': '이미 완료된 시험입니다.'}, status=status.HTTP_409_CONFLICT)
+        if registration.status == 'cancelled':
+            return Response({'detail': '취소된 신청은 완료할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 완료 처리
+        registration.status = 'completed'
+        if registration.attempted_at is None:
+            registration.attempted_at = now
+        registration.save(update_fields=['status', 'attempted_at', 'updated_at'])
+
+        return Response({
+            'registration_id': registration.id,
+            'status': 'completed',
+        }, status=status.HTTP_200_OK)
