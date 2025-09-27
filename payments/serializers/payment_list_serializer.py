@@ -1,10 +1,10 @@
-from rest_framework import serializers
+from rest_framework import ModelSerializer, SerializerMethodField
 from payments.models import Payment
 
-class PaymentListSerializer(serializers.ModelSerializer):
-    target = serializers.SerializerMethodField()
-    item_title = serializers.SerializerMethodField()
-    attempted_at = serializers.SerializerMethodField()
+class PaymentListSerializer(ModelSerializer):
+    target = SerializerMethodField()
+    item_title = SerializerMethodField()
+    attempted_at = SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -21,15 +21,15 @@ class PaymentListSerializer(serializers.ModelSerializer):
         return 'course' if obj.course_registration_id else 'test'
 
     def get_item_title(self, obj: Payment):
-        if obj.course_registration_id and obj.course_registration and obj.course_registration.course:
-            return obj.course_registration.course.title
-        if obj.test_registration_id and obj.test_registration and obj.test_registration.test:
-            return obj.test_registration.test.title
-        return None
+        course_title = getattr(getattr(obj.course_registration, 'course', None), 'title', None) if obj.course_registration_id else None
+        if course_title is not None:
+            return course_title
+        test_title = getattr(getattr(obj.test_registration, 'test', None), 'title', None) if obj.test_registration_id else None
+        return test_title
 
     def get_attempted_at(self, obj: Payment):
-        if obj.course_registration_id and obj.course_registration:
-            return obj.course_registration.attempted_at
-        if obj.test_registration_id and obj.test_registration:
-            return obj.test_registration.attempted_at
-        return None
+        course_attempted = getattr(obj.course_registration, 'attempted_at', None) if obj.course_registration_id else None
+        if course_attempted is not None:
+            return course_attempted
+        test_attempted = getattr(obj.test_registration, 'attempted_at', None) if obj.test_registration_id else None
+        return test_attempted
