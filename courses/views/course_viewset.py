@@ -1,105 +1,131 @@
-from django.db.models import Exists, OuterRef, Q
-from rest_framework import mixins, permissions, viewsets
+from django.db.models import Exists, OuterRef
+from django.db import transaction
 from courses.models import Course, CourseRegistration
 from courses.serializers.course_list_serializer import CourseListSerializer
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
-from django.db import transaction
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 from courses.serializers.course_enroll_serializer import CourseEnrollSerializer
+from rest_framework.mixins import ListModelMixin
+from rest_framework.viewsets import GenericViewSet
 from payments.models import Payment
+from rest_framework.permissions import IsAuthenticated
 
-class CourseViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class CourseViewSet(ListModelMixin, GenericViewSet):
     serializer_class = CourseListSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        qs = Course.objects.all().annotate(
+        queryset = self._base_queryset_with_registration_flag(user)
+        queryset = self._apply_status_filter(queryset)
+        queryset = self._apply_sorting(queryset)
+        return queryset
+
+    @action(detail=True, methods=['post'], url_path='complete')
+    def complete(self, request, pk=None):
+        course = self._get_course_or_404(pk)
+        self._validate_course_is_completable(course)
+        registration = self._get_registration_or_404(request.user, course)
+        self._validate_registration_can_complete(registration)
+        self._mark_registration_completed(registration)
+
+        return Response({'registration_id': registration.id, 'status': 'completed'}, status=HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='enroll')
+    def enroll(self, request, pk=None):
+        serializer = CourseEnrollSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        course = self._get_course_or_404(pk)
+        self._validate_course_is_enrollable(course)
+        self._ensure_not_already_registered(request.user, course)
+
+        with transaction.atomic():
+            course_registration = self._create_registration(request.user, course)
+            payment = self._create_payment(course_registration, serializer.validated_data)
+
+        return Response(self._build_enroll_response(course_registration, payment), status=HTTP_201_CREATED)
+
+    def _base_queryset_with_registration_flag(self, user):
+        return Course.objects.all().annotate(
             is_registered=Exists(
                 CourseRegistration.objects.filter(user=user, course_id=OuterRef('pk'))
             ),
         )
 
+    def _apply_status_filter(self, queryset):
         status_param = self.request.query_params.get('status')
         if status_param == 'available':
             now = timezone.now()
-            qs = qs.filter(is_active=True, is_registered=False, start_at__lte=now, end_at__gte=now)
+            return queryset.filter(is_active=True, is_registered=False, start_at__lte=now, end_at__gte=now)
+        return queryset
 
+    def _apply_sorting(self, queryset):
         sort = self.request.query_params.get('sort', 'created')
         if sort == 'popular':
-            return qs.order_by('-registrations_count', '-created_at')
-        return qs.order_by('-created_at')
+            return queryset.order_by('-registrations_count', '-created_at')
+        return queryset.order_by('-created_at')
 
-
-    @action(detail=True, methods=['post'], url_path='enroll')
-    def post_queryset(self, request, pk=None):
-        serializer = CourseEnrollSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        amount = serializer.validated_data['amount']
-        payment_method = serializer.validated_data['payment_method']
-
+    def _get_course_or_404(self, pk):
         try:
-            course = Course.objects.get(pk=pk)
+            return Course.objects.get(pk=pk)
         except Course.DoesNotExist:
-            return Response({'detail': '존재하지 않는 수업입니다.'}, status=status.HTTP_404_NOT_FOUND)
+            raise self._error(HTTP_404_NOT_FOUND, '존재하지 않는 수업입니다.')
 
+    def _validate_course_is_enrollable(self, course):
         now = timezone.now()
         if not (course.is_active and course.start_at <= now <= course.end_at):
-            return Response({'detail': '수업 수강 가능한 수업이 아닙니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise self._error(HTTP_400_BAD_REQUEST, '수업 수강 가능한 수업이 아닙니다.')
 
-        # 이미 수업 수강 신청 여부 확인
-        exists = CourseRegistration.objects.filter(user=request.user, course=course).exists()
-        if exists:
-            return Response({'detail': '이미 수업 수강 신청된 수업입니다.'}, status=status.HTTP_409_CONFLICT)
+    def _ensure_not_already_registered(self, user, course):
+        if CourseRegistration.objects.filter(user=user, course=course).exists():
+            raise self._error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
 
-        with transaction.atomic():
-            # 수업 수강 신청 생성
-            course_registration = CourseRegistration.objects.create(user=request.user, course=course)
+    def _create_registration(self, user, course):
+        return CourseRegistration.objects.create(user=user, course=course)
 
-            # 결제 생성 (OneToOne: course_registration만 채우고 course_registration은 비움)
-            payment = Payment.objects.create(
-                course_registration=course_registration,
-                amount=amount,
-                payment_method=payment_method,
-                status='paid',
-            )
+    def _create_payment(self, course_registration, data):
+        return Payment.objects.create(
+            course_registration=course_registration,
+            amount=data['amount'],
+            payment_method=data['payment_method'],
+            status='paid',
+        )
 
-        return Response({
-            'registration_id': course_registration.id,
+    def _build_enroll_response(self, registration, payment):
+        return {
+            'registration_id': registration.id,
             'payment_id': payment.id,
             'status': 'paid',
-        }, status=status.HTTP_201_CREATED)
+        }
 
-
-    @action(detail=True, methods=['post'], url_path='complete')
-    def complete(self, request, pk=None):
-        try:
-            course = Course.objects.get(pk=pk)
-        except Course.DoesNotExist:
-            return Response({'detail': '존재하지 않는 수업입니다.'}, status=status.HTTP_404_NOT_FOUND)
-
+    def _validate_course_is_completable(self, course):
         now = timezone.now()
         if not (course.is_active and course.start_at <= now <= course.end_at):
-            return Response({'detail': '완료 처리 가능한 수업이 아닙니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise self._error(HTTP_400_BAD_REQUEST, '완료 처리 가능한 수업이 아닙니다.')
 
+    def _get_registration_or_404(self, user, course):
         try:
-            registration = CourseRegistration.objects.get(user=request.user, course=course)
+            return CourseRegistration.objects.get(user=user, course=course)
         except CourseRegistration.DoesNotExist:
-            return Response({'detail': '수강 신청 이력이 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+            raise self._error(HTTP_404_NOT_FOUND, '수강 신청 이력이 없습니다.')
 
+    def _validate_registration_can_complete(self, registration):
         if registration.status == 'completed':
-            return Response({'detail': '이미 완료된 수업입니다.'}, status=status.HTTP_409_CONFLICT)
+            raise self._error(HTTP_409_CONFLICT, '이미 완료된 수업입니다.')
         if registration.status == 'cancelled':
-            return Response({'detail': '취소된 신청은 완료할 수 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            raise self._error(HTTP_400_BAD_REQUEST, '취소된 신청은 완료할 수 없습니다.')
 
+    def _mark_registration_completed(self, registration):
+        now = timezone.now()
         registration.status = 'completed'
         if registration.attempted_at is None:
             registration.attempted_at = now
         registration.save(update_fields=['status', 'attempted_at'])
 
-        return Response({
-            'registration_id': registration.id,
-            'status': 'completed',
-        }, status=status.HTTP_200_OK)
+    def _error(self, status_code, message):
+        from rest_framework.exceptions import APIException
+        exc = APIException(detail=message)
+        exc.status_code = status_code
+        return exc
