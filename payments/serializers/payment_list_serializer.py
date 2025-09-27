@@ -1,4 +1,4 @@
-from rest_framework import ModelSerializer, SerializerMethodField
+from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from payments.models import Payment
 
 class PaymentListSerializer(ModelSerializer):
