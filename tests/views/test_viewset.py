@@ -12,6 +12,7 @@ from django.db import transaction, IntegrityError
 from tests.serializers.test_apply_serializer import TestApplySerializer
 from payments.models import Payment
 from assignment.config.pagination_config import CustomPagination
+from assignment.common.api_errors import api_error
 
 
 class TestViewSet(ListModelMixin, GenericViewSet):
@@ -77,16 +78,16 @@ class TestViewSet(ListModelMixin, GenericViewSet):
         try:
             return Test.objects.get(pk=pk)
         except Test.DoesNotExist:
-            raise self._error(HTTP_404_NOT_FOUND, '존재하지 않는 시험입니다.')
+            raise api_error(HTTP_404_NOT_FOUND, '존재하지 않는 시험입니다.')
 
     def _validate_test_is_applicable(self, test):
         now = timezone.now()
         if not (test.is_active and test.start_at <= now <= test.end_at):
-            raise self._error(HTTP_400_BAD_REQUEST, '응시 가능한 시험이 아닙니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '응시 가능한 시험이 아닙니다.')
 
     def _ensure_not_already_applied(self, user, test):
         if TestRegistration.objects.filter(user=user, test=test).exists():
-            raise self._error(HTTP_409_CONFLICT, '이미 응시 신청된 시험입니다.')
+            raise api_error(HTTP_409_CONFLICT, '이미 응시 신청된 시험입니다.')
 
     def _create_registration(self, user, test):
         return TestRegistration.objects.create(user=user, test=test)
@@ -104,29 +105,29 @@ class TestViewSet(ListModelMixin, GenericViewSet):
             try:
                 registration = self._create_registration(user, test)
             except IntegrityError:
-                raise self._error(HTTP_409_CONFLICT, '이미 응시 신청된 시험입니다.')
+                raise api_error(HTTP_409_CONFLICT, '이미 응시 신청된 시험입니다.')
             try:
                 payment = self._create_payment(registration, validated_data)
             except IntegrityError:
-                raise self._error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
+                raise api_error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
         return registration, payment
 
     def _validate_test_is_completable(self, test):
         now = timezone.now()
         if not (test.is_active and test.start_at <= now <= test.end_at):
-            raise self._error(HTTP_400_BAD_REQUEST, '응시 완료 가능한 시험이 아닙니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '응시 완료 가능한 시험이 아닙니다.')
 
     def _get_registration_or_404(self, user, test):
         try:
             return TestRegistration.objects.get(user=user, test=test)
         except TestRegistration.DoesNotExist:
-            raise self._error(HTTP_404_NOT_FOUND, '응시 신청 이력이 없습니다.')
+            raise api_error(HTTP_404_NOT_FOUND, '응시 신청 이력이 없습니다.')
 
     def _validate_registration_can_complete(self, registration):
         if registration.status == 'completed':
-            raise self._error(HTTP_409_CONFLICT, '이미 완료된 시험입니다.')
+            raise api_error(HTTP_409_CONFLICT, '이미 완료된 시험입니다.')
         if registration.status == 'cancelled':
-            raise self._error(HTTP_400_BAD_REQUEST, '취소된 신청은 완료할 수 없습니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '취소된 신청은 완료할 수 없습니다.')
 
     def _mark_registration_completed(self, registration):
         now = timezone.now()
@@ -134,9 +135,3 @@ class TestViewSet(ListModelMixin, GenericViewSet):
         if registration.attempted_at is None:
             registration.attempted_at = now
         registration.save(update_fields=['status', 'attempted_at'])
-
-    def _error(self, status_code, message):
-        from rest_framework.exceptions import APIException
-        exc = APIException(detail=message)
-        exc.status_code = status_code
-        return exc

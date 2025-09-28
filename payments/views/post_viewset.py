@@ -10,6 +10,7 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FO
 from payments.models import Payment
 from courses.models import CourseRegistration
 from tests.models import TestRegistration
+from assignment.common.api_errors import api_error
 
 
 class PaymentViewSet(GenericViewSet):
@@ -45,18 +46,14 @@ class PaymentViewSet(GenericViewSet):
                 .get(pk=pk)
             )
         except Payment.DoesNotExist:
-            exc = APIException(detail="존재하지 않는 결제입니다.")
-            exc.status_code = HTTP_404_NOT_FOUND
-            raise exc
+            raise api_error(HTTP_404_NOT_FOUND, "존재하지 않는 결제입니다.")
 
     def _lock_registration_or_400(self, payment: Payment):
         if payment.course_registration_id:
             return CourseRegistration.objects.select_for_update().get(pk=payment.course_registration_id)
         if payment.test_registration_id:
             return TestRegistration.objects.select_for_update().get(pk=payment.test_registration_id)
-        exc = APIException(detail="연결된 신청 내역이 없습니다.")
-        exc.status_code = HTTP_400_BAD_REQUEST
-        raise exc
+        raise api_error(HTTP_400_BAD_REQUEST, "연결된 신청 내역이 없습니다.")
 
     def _cancel_registration_if_needed(self, registration) -> None:
         if getattr(registration, "status", "registered") != "cancelled":
@@ -71,38 +68,25 @@ class PaymentViewSet(GenericViewSet):
     def _ensure_ownership_with_registration_or_403(self, registration, user) -> None:
         user_id = getattr(registration, 'user_id', None)
         if user_id != user.id:
-            from rest_framework.exceptions import APIException
-            exc = APIException(detail="본인의 결제만 취소할 수 있습니다.")
-            exc.status_code = HTTP_403_FORBIDDEN
-            raise exc
+            raise api_error(HTTP_403_FORBIDDEN, "본인의 결제만 취소할 수 있습니다.")
 
     def _get_payment_or_404(self) -> Payment:
         try:
             return self.get_object()
         except Http404:
-            exc = APIException(detail="존재하지 않는 결제입니다.")
-            exc.status_code = HTTP_404_NOT_FOUND
-            raise exc
+            raise api_error(HTTP_404_NOT_FOUND, "존재하지 않는 결제입니다.")
 
     def _get_registration_or_400(self, payment: Payment):
         registration = payment.course_registration or payment.test_registration
         if registration is None:
-            exc = APIException(detail="연결된 신청 내역이 없습니다.")
-            exc.status_code = HTTP_400_BAD_REQUEST
-            raise exc
+            raise api_error(HTTP_400_BAD_REQUEST, "연결된 신청 내역이 없습니다.")
         return registration
 
     def _validate_not_completed_or_409(self, registration) -> None:
         status_value = getattr(registration, "status", "registered")
         if status_value == "completed":
-            exc = APIException(detail="완료된 내역은 취소할 수 없습니다.")
-            exc.status_code = HTTP_409_CONFLICT
-            raise exc
+            raise api_error(HTTP_409_CONFLICT, "완료된 내역은 취소할 수 없습니다.")
         if status_value == "cancelled":
-            exc = APIException(detail="이미 취소된 내역입니다.")
-            exc.status_code = HTTP_409_CONFLICT
-            raise exc
+            raise api_error(HTTP_409_CONFLICT, "이미 취소된 내역입니다.")
         if status_value not in {"registered", "in_progress"}:
-            exc = APIException(detail="취소할 수 있는 상태가 아닙니다.")
-            exc.status_code = HTTP_409_CONFLICT
-            raise exc
+            raise api_error(HTTP_409_CONFLICT, "취소할 수 있는 상태가 아닙니다.")

@@ -12,6 +12,7 @@ from assignment.config.pagination_config import CustomPagination
 from rest_framework.viewsets import GenericViewSet
 from payments.models import Payment
 from rest_framework.permissions import IsAuthenticated
+from assignment.common.api_errors import api_error
 
 
 class CourseViewSet(ListModelMixin, GenericViewSet):
@@ -78,16 +79,16 @@ class CourseViewSet(ListModelMixin, GenericViewSet):
         try:
             return Course.objects.get(pk=pk)
         except Course.DoesNotExist:
-            raise self._error(HTTP_404_NOT_FOUND, '존재하지 않는 수업입니다.')
+            raise api_error(HTTP_404_NOT_FOUND, '존재하지 않는 수업입니다.')
 
     def _validate_course_is_enrollable(self, course):
         now = timezone.now()
         if not (course.is_active and course.start_at <= now <= course.end_at):
-            raise self._error(HTTP_400_BAD_REQUEST, '수업 수강 가능한 수업이 아닙니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '수업 수강 가능한 수업이 아닙니다.')
 
     def _ensure_not_already_registered(self, user, course):
         if CourseRegistration.objects.filter(user=user, course=course).exists():
-            raise self._error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
+            raise api_error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
 
     def _create_registration(self, user, course):
         return CourseRegistration.objects.create(user=user, course=course)
@@ -105,29 +106,29 @@ class CourseViewSet(ListModelMixin, GenericViewSet):
             try:
                 registration = self._create_registration(user, course)
             except IntegrityError:
-                raise self._error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
+                raise api_error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
             try:
                 payment = self._create_payment(registration, validated_data)
             except IntegrityError:
-                raise self._error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
+                raise api_error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
         return registration, payment
 
     def _validate_course_is_completable(self, course):
         now = timezone.now()
         if not (course.is_active and course.start_at <= now <= course.end_at):
-            raise self._error(HTTP_400_BAD_REQUEST, '완료 처리 가능한 수업이 아닙니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '완료 처리 가능한 수업이 아닙니다.')
 
     def _get_registration_or_404(self, user, course):
         try:
             return CourseRegistration.objects.get(user=user, course=course)
         except CourseRegistration.DoesNotExist:
-            raise self._error(HTTP_404_NOT_FOUND, '수강 신청 이력이 없습니다.')
+            raise api_error(HTTP_404_NOT_FOUND, '수강 신청 이력이 없습니다.')
 
     def _validate_registration_can_complete(self, registration):
         if registration.status == 'completed':
-            raise self._error(HTTP_409_CONFLICT, '이미 완료된 수업입니다.')
+            raise api_error(HTTP_409_CONFLICT, '이미 완료된 수업입니다.')
         if registration.status == 'cancelled':
-            raise self._error(HTTP_400_BAD_REQUEST, '취소된 신청은 완료할 수 없습니다.')
+            raise api_error(HTTP_400_BAD_REQUEST, '취소된 신청은 완료할 수 없습니다.')
 
     def _mark_registration_completed(self, registration):
         now = timezone.now()
@@ -135,9 +136,3 @@ class CourseViewSet(ListModelMixin, GenericViewSet):
         if registration.attempted_at is None:
             registration.attempted_at = now
         registration.save(update_fields=['status', 'attempted_at'])
-
-    def _error(self, status_code, message):
-        from rest_framework.exceptions import APIException
-        exc = APIException(detail=message)
-        exc.status_code = status_code
-        return exc

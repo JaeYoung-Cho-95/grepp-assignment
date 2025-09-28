@@ -4,7 +4,8 @@ from django.utils.timezone import make_aware
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.mixins import ListModelMixin
 from rest_framework.viewsets import GenericViewSet
-from rest_framework.exceptions import ValidationError
+from rest_framework.status import HTTP_400_BAD_REQUEST
+from assignment.common.api_errors import api_error
 
 from payments.models import Payment
 from payments.serializers.payment_list_serializer import PaymentListSerializer
@@ -34,7 +35,7 @@ class MePaymentsViewSet(ListModelMixin, GenericViewSet):
             return queryset
         allowed = {'paid', 'cancelled'}
         if status_param not in allowed:
-            raise ValidationError({'status': f'허용값: {", ".join(sorted(allowed))}'})
+            raise api_error(HTTP_400_BAD_REQUEST, f'허용값: {", ".join(sorted(allowed))}')
         return queryset.filter(status=status_param)
 
     def _apply_date_range_filter(self, queryset, status_param):
@@ -72,4 +73,4 @@ class MePaymentsViewSet(ListModelMixin, GenericViewSet):
                 dt_to = make_aware(datetime.combine(d_to, dtime.max))
             return dt_from, dt_to
         except Exception:
-            raise ValidationError({'from/to': 'YYYY-MM-DD 형식이어야 합니다.'})
+            raise api_error(HTTP_400_BAD_REQUEST, 'YYYY-MM-DD 형식이어야 합니다.')
