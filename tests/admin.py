@@ -3,7 +3,7 @@ from tests.models import Test, TestRegistration
 
 @admin.register(Test)
 class TestAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "is_active", "created_at", "updated_at")
+    list_display = ("id", "title", "is_active", "start_at", "end_at", "registrations_count", "created_at", "updated_at")
     search_fields = ("title",)
     list_filter = ("is_active",)
     ordering = ("-created_at",)
