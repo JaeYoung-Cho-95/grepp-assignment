@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('courses', '0001_initial'),
+        ('courses', '0001_initial_squashed_0005_remove_course_courses_is_acti_25e634_idx_and_more'),
         ('tests', '0004_testregistration_attempted_at_and_more'),
     ]
 

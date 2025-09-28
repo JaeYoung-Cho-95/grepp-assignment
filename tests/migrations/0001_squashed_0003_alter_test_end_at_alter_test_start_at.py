@@ -6,9 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
-    replaces = [('tests', '0001_initial'), ('tests', '0002_remove_test_description_test_end_at_test_start_at'), ('tests', '0003_alter_test_end_at_alter_test_start_at')]
-
     initial = True
 
     dependencies = [

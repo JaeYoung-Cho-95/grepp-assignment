@@ -50,7 +50,6 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=["created_at"]),
             models.Index(fields=["status"]),
-            # 상태별 기간 필터 가속 (부분 인덱스)
             models.Index(fields=["paid_at"], name="payments_paid_at_idx", condition=models.Q(status="paid")),
             models.Index(fields=["canceled_at"], name="payments_canceled_at_idx", condition=models.Q(status__in=["cancelled", "refunded"]))
         ]
