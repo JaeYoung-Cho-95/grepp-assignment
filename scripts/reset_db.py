@@ -15,23 +15,23 @@ from django.contrib.auth import get_user_model
 from courses.models import Course, CourseRegistration
 from tests.models import Test, TestRegistration
 from payments.models import Payment
+from django.db import connection, transaction
 
 def main():
-    # 1) 결제 삭제 (OneToOne → 등록 삭제 전)
-    deleted = Payment.objects.all().delete()
-    print(f"Payment 삭제: {deleted}")
-
-    # 2) 등록 삭제
-    deleted = CourseRegistration.objects.all().delete()
-    print(f"CourseRegistration 삭제: {deleted}")
-    deleted = TestRegistration.objects.all().delete()
-    print(f"TestRegistration 삭제: {deleted}")
-
-    # 3) 코어 테이블 삭제
-    deleted = Course.objects.all().delete()
-    print(f"Course 삭제: {deleted}")
-    deleted = Test.objects.all().delete()
-    print(f"Test 삭제: {deleted}")
+    # 대량 데이터 초기화에 적합: TRUNCATE로 연쇄 삭제 + 시퀀스 초기화
+    tables = [
+        'payments',
+        'course_registrations',
+        'test_registrations',
+        'courses',
+        'tests',
+    ]
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY CASCADE;"
+            )
+    print(f"TRUNCATE 완료: {', '.join(tables)} (RESTART IDENTITY CASCADE)")
 
     # 4) 사용자 삭제 (슈퍼유저는 보존)
     User = get_user_model()
