@@ -105,9 +105,9 @@ class MePaymentsViewSetTests(APITestCase):
         self.assertIn(2222, amounts)
         self.assertEqual(res.data[0]["amount"], 2222)
 
-    def test_serializer_fields_target_item_title_attempted_at(self):
+    def test_serializer_fields_item_title_attempted_at(self):
         """
-        직렬화 필드: target/item_title/attempted_at 채워짐
+        직렬화 필드: item_title/attempted_at 채워짐 (target 필드는 비노출)
         """
         course = self._make_course(title="Django 강의")
         test = self._make_test(title="모의고사 A")
@@ -118,12 +118,8 @@ class MePaymentsViewSetTests(APITestCase):
         res = self.client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         by_amount = {item["amount"]: item for item in res.data}
-
-        self.assertEqual(by_amount[1111]["target"], "course")
         self.assertEqual(by_amount[1111]["item_title"], "Django 강의")
         self.assertIsNotNone(by_amount[1111]["attempted_at"])
-
-        self.assertEqual(by_amount[2222]["target"], "test")
         self.assertEqual(by_amount[2222]["item_title"], "모의고사 A")
         self.assertIsNotNone(by_amount[2222]["attempted_at"])
 
@@ -239,7 +235,7 @@ class PaymentCancelViewSetTests(APITestCase):
 
     def test_cancel_course_payment_success(self):
         """
-        결제 취소 성공(수업): 신청/결제 CASCADE 삭제
+        결제 취소 성공(수업): 상태가 cancelled로 변경되고 레코드는 유지
         """
         course = self._make_course()
         reg = CourseRegistration.objects.create(user=self.user, course=course)
@@ -248,16 +244,19 @@ class PaymentCancelViewSetTests(APITestCase):
         res = self.client.post(f"{self.base_url}/{pay.id}/cancel", {}, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
         self.assertEqual(res.data["detail"], "결제가 취소되었습니다.")
-        self.assertEqual(res.data["deleted_registration_id"], reg.id)
+        self.assertEqual(res.data["registration_id"], reg.id)
+        self.assertEqual(res.data["payment_id"], pay.id)
+        self.assertEqual(res.data["status"], "cancelled")
 
-        with self.assertRaises(CourseRegistration.DoesNotExist):
-            CourseRegistration.objects.get(id=reg.id)
-        with self.assertRaises(Payment.DoesNotExist):
-            Payment.objects.get(id=pay.id)
+        # DB 상태 확인: 레코드는 존재하고 상태만 변경됨
+        reg.refresh_from_db()
+        pay.refresh_from_db()
+        self.assertEqual(reg.status, "cancelled")
+        self.assertEqual(pay.status, "cancelled")
 
     def test_cancel_test_payment_success(self):
         """
-        결제 취소 성공(시험): 신청/결제 CASCADE 삭제
+        결제 취소 성공(시험): 상태가 cancelled로 변경되고 레코드는 유지
         """
         test = self._make_test()
         reg = TestRegistration.objects.create(user=self.user, test=test)
@@ -265,11 +264,14 @@ class PaymentCancelViewSetTests(APITestCase):
 
         res = self.client.post(f"{self.base_url}/{pay.id}/cancel", {}, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
-        self.assertEqual(res.data["deleted_registration_id"], reg.id)
-        with self.assertRaises(TestRegistration.DoesNotExist):
-            TestRegistration.objects.get(id=reg.id)
-        with self.assertRaises(Payment.DoesNotExist):
-            Payment.objects.get(id=pay.id)
+        self.assertEqual(res.data["registration_id"], reg.id)
+        self.assertEqual(res.data["payment_id"], pay.id)
+        self.assertEqual(res.data["status"], "cancelled")
+
+        reg.refresh_from_db()
+        pay.refresh_from_db()
+        self.assertEqual(reg.status, "cancelled")
+        self.assertEqual(pay.status, "cancelled")
 
     def test_cancel_not_found(self):
         """
