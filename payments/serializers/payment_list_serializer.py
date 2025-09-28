@@ -4,6 +4,8 @@ from payments.models import Payment
 class PaymentListSerializer(ModelSerializer):
     target = SerializerMethodField()
     item_title = SerializerMethodField()
+    course_id = SerializerMethodField()
+    test_id = SerializerMethodField()
     attempted_at = SerializerMethodField()
 
     class Meta:
@@ -12,6 +14,8 @@ class PaymentListSerializer(ModelSerializer):
             'amount',
             'payment_method',
             'target',
+            'course_id',
+            'test_id',
             'item_title',
             'status',
             'attempted_at',
@@ -33,3 +37,22 @@ class PaymentListSerializer(ModelSerializer):
             return course_attempted
         test_attempted = getattr(obj.test_registration, 'attempted_at', None) if obj.test_registration_id else None
         return test_attempted
+
+    def get_course_id(self, obj: Payment):
+        if obj.course_registration_id:
+            return getattr(obj.course_registration, 'course_id', None)
+        return None
+
+    def get_test_id(self, obj: Payment):
+        if obj.test_registration_id:
+            return getattr(obj.test_registration, 'test_id', None)
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        target = data.get('target')
+        if target == 'course':
+            data.pop('test_id', None)
+        elif target == 'test':
+            data.pop('course_id', None)
+        return data

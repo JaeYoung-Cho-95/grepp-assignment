@@ -36,8 +36,8 @@ class Payment(models.Model):
     )
 
     amount = models.PositiveIntegerField()
-    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="paid", db_index=True)
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="paid")
 
     paid_at = models.DateTimeField(null=True, blank=True)
     canceled_at = models.DateTimeField(null=True, blank=True)
@@ -50,7 +50,9 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=["created_at"]),
             models.Index(fields=["status"]),
-            models.Index(fields=["payment_method"]),
+            # 상태별 기간 필터 가속 (부분 인덱스)
+            models.Index(fields=["paid_at"], name="payments_paid_at_idx", condition=models.Q(status="paid")),
+            models.Index(fields=["canceled_at"], name="payments_canceled_at_idx", condition=models.Q(status__in=["cancelled", "refunded"]))
         ]
         constraints = [
             # 대상은 반드시 하나만 설정 (XOR)
