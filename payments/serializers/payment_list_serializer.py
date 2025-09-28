@@ -2,27 +2,21 @@ from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from payments.models import Payment
 
 class PaymentListSerializer(ModelSerializer):
-    target = SerializerMethodField()
     item_title = SerializerMethodField()
-    course_id = SerializerMethodField()
-    test_id = SerializerMethodField()
     attempted_at = SerializerMethodField()
+    can_refund = SerializerMethodField()
 
     class Meta:
         model = Payment
         fields = (
+            'id',
             'amount',
             'payment_method',
-            'target',
-            'course_id',
-            'test_id',
             'item_title',
             'status',
+            'can_refund',
             'attempted_at',
         )
-
-    def get_target(self, obj: Payment):
-        return 'course' if obj.course_registration_id else 'test'
 
     def get_item_title(self, obj: Payment):
         course_title = getattr(getattr(obj.course_registration, 'course', None), 'title', None) if obj.course_registration_id else None
@@ -38,21 +32,9 @@ class PaymentListSerializer(ModelSerializer):
         test_attempted = getattr(obj.test_registration, 'attempted_at', None) if obj.test_registration_id else None
         return test_attempted
 
-    def get_course_id(self, obj: Payment):
-        if obj.course_registration_id:
-            return getattr(obj.course_registration, 'course_id', None)
-        return None
-
-    def get_test_id(self, obj: Payment):
-        if obj.test_registration_id:
-            return getattr(obj.test_registration, 'test_id', None)
-        return None
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        target = data.get('target')
-        if target == 'course':
-            data.pop('test_id', None)
-        elif target == 'test':
-            data.pop('course_id', None)
-        return data
+    def get_can_refund(self, obj: Payment):
+        registration = obj.course_registration if obj.course_registration_id else obj.test_registration if obj.test_registration_id else None
+        if registration is None:
+            return False
+        status_value = getattr(registration, 'status', None)
+        return status_value in {'registered', 'in_progress'}

@@ -71,8 +71,19 @@ class PaymentViewSet(GenericViewSet):
         return registration
 
     def _validate_not_completed_or_409(self, registration) -> None:
-        if getattr(registration, "status", "registered") == "completed":
+        status_value = getattr(registration, "status", "registered")
+        if status_value == "completed":
             from rest_framework.exceptions import APIException
             exc = APIException(detail="완료된 내역은 취소할 수 없습니다.")
+            exc.status_code = HTTP_409_CONFLICT
+            raise exc
+        if status_value == "cancelled":
+            from rest_framework.exceptions import APIException
+            exc = APIException(detail="이미 취소된 내역입니다.")
+            exc.status_code = HTTP_409_CONFLICT
+            raise exc
+        if status_value not in {"registered", "in_progress"}:
+            from rest_framework.exceptions import APIException
+            exc = APIException(detail="취소할 수 있는 상태가 아닙니다.")
             exc.status_code = HTTP_409_CONFLICT
             raise exc
