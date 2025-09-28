@@ -66,7 +66,7 @@ class PaymentViewSet(GenericViewSet):
     def _cancel_payment_if_needed(self, payment: Payment) -> None:
         if payment.status != "cancelled":
             payment.status = "cancelled"
-        payment.save(update_fields=["status"]) 
+        payment.save(update_fields=["status","canceled_at"]) 
 
     def _ensure_ownership_with_registration_or_403(self, registration, user) -> None:
         user_id = getattr(registration, 'user_id', None)
@@ -82,18 +82,6 @@ class PaymentViewSet(GenericViewSet):
         except Http404:
             exc = APIException(detail="존재하지 않는 결제입니다.")
             exc.status_code = HTTP_404_NOT_FOUND
-            raise exc
-
-    def _ensure_ownership_or_403(self, payment: Payment, user) -> None:
-        if payment.course_registration_id:
-            ok = payment.course_registration.user_id == user.id
-        elif payment.test_registration_id:
-            ok = payment.test_registration.user_id == user.id
-        else:
-            ok = False
-        if not ok:
-            exc = APIException(detail="본인의 결제만 취소할 수 있습니다.")
-            exc.status_code = HTTP_403_FORBIDDEN
             raise exc
 
     def _get_registration_or_400(self, payment: Payment):
