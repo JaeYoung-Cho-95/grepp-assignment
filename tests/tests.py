@@ -4,6 +4,10 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
+from rest_framework.serializers import ValidationError
+from unittest.mock import patch
+from django.db import IntegrityError
+from tests.serializers.test_apply_serializer import TestApplySerializer
 
 from tests.models import Test, TestRegistration
 from payments.models import Payment
@@ -205,3 +209,66 @@ class TestViewSetTests(APITestCase):
         TestRegistration.objects.create(user=self.user, test=future, status="registered")
         r2 = self.client.post(f"{self.base_url}/{future.id}/complete", {}, format="json")
         self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_apply_registration_integrity_error(self):
+        """
+        트랜잭션 내 등록 생성 단계에서 IntegrityError 발생 시 409 반환
+        """
+        test = self._make_test(title="IE Reg", start_delta=-1, end_delta=1, is_active=True)
+        with patch("tests.views.test_viewset.TestViewSet._create_registration", side_effect=IntegrityError()):
+            res = self.client.post(
+                f"{self.base_url}/{test.id}/apply",
+                {"amount": 10000, "payment_method": "card"},
+                format="json",
+            )
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+
+    def test_apply_payment_integrity_error(self):
+        """
+        트랜잭션 내 결제 생성 단계에서 IntegrityError 발생 시 409 반환
+        """
+        test = self._make_test(title="IE Pay", start_delta=-1, end_delta=1, is_active=True)
+        with patch("tests.views.test_viewset.TestViewSet._create_payment", side_effect=IntegrityError()):
+            res = self.client.post(
+                f"{self.base_url}/{test.id}/apply",
+                {"amount": 10000, "payment_method": "card"},
+                format="json",
+            )
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+
+    def test_apply_amount_zero_invalid(self):
+        """
+        amount=0이면 직렬화기 검증으로 400 반환
+        """
+        test = self._make_test(title="Amount Zero", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.post(
+            f"{self.base_url}/{test.id}/apply",
+            {"amount": 0, "payment_method": "card"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("amount", res.data)
+
+    def test_serializer_validate_amount_and_method_success(self):
+        """
+        직렬화기 validator 정상 경로 커버리지 확보
+        """
+        s = TestApplySerializer(data={"amount": 1234, "payment_method": "card"})
+        self.assertTrue(s.is_valid(), s.errors)
+        self.assertEqual(s.validated_data["amount"], 1234)
+
+    def test_direct_validate_payment_method_raises(self):
+        """
+        커스텀 validator 메서드를 직접 호출하여 raise 라인을 커버한다.
+        """
+        ser = TestApplySerializer()
+        with self.assertRaises(ValidationError):
+            ser.validate_payment_method("unknown")
+
+    def test_direct_validate_amount_raises(self):
+        """
+        커스텀 amount validator의 raise 라인을 직접 커버한다.
+        """
+        ser = TestApplySerializer()
+        with self.assertRaises(ValidationError):
+            ser.validate_amount(0)

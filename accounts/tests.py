@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+from django.test import TestCase
 
 User = get_user_model()
 
@@ -60,3 +61,34 @@ class SignUpAPITests(APITestCase):
         """        
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class UserManagerTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+
+    def test_create_user_success(self):
+        u = self.User.objects.create_user(email="m1@example.com", password="Str0ngP@ss!")
+        self.assertEqual(u.email, "m1@example.com")
+        self.assertTrue(u.check_password("Str0ngP@ss!"))
+
+    def test_create_user_requires_email(self):
+        with self.assertRaisesMessage(ValueError, '이메일은 필수입니다'):
+            self.User.objects.create_user(email="", password="x")
+
+    def test_create_user_requires_password(self):
+        with self.assertRaisesMessage(ValueError, '비밀번호는 필수입니다'):
+            self.User.objects.create_user(email="m2@example.com", password="")
+
+    def test_create_superuser_success(self):
+        su = self.User.objects.create_superuser(email="admin@example.com", password="Adm1nP@ss!")
+        self.assertTrue(su.is_staff)
+        self.assertTrue(su.is_superuser)
+
+    def test_create_superuser_requires_is_staff_true(self):
+        with self.assertRaisesMessage(ValueError, '슈퍼유저는 is_staff=True여야 합니다'):
+            self.User.objects.create_superuser(email="a@example.com", password="x", is_staff=False)
+
+    def test_create_superuser_requires_is_superuser_true(self):
+        with self.assertRaisesMessage(ValueError, '슈퍼유저는 is_superuser=True여야 합니다'):
+            self.User.objects.create_superuser(email="b@example.com", password="x", is_superuser=False)

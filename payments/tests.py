@@ -3,7 +3,12 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
+from unittest.mock import patch
+from types import SimpleNamespace
+from django.http import Http404
+from rest_framework.exceptions import APIException
 
+from payments.views.post_viewset import PaymentViewSet
 from courses.models import Course, CourseRegistration
 from tests.models import Test, TestRegistration
 from payments.models import Payment
@@ -308,3 +313,70 @@ class PaymentCancelViewSetTests(APITestCase):
 
         self.assertTrue(CourseRegistration.objects.filter(id=reg.id).exists())
         self.assertTrue(Payment.objects.filter(id=pay.id).exists())
+
+    def test_cancel_conflict_already_cancelled_registration(self):
+        """
+        이미 취소된 신청이면 409 반환
+        """
+        course = self._make_course()
+        reg = CourseRegistration.objects.create(user=self.user, course=course, status="cancelled")
+        pay = Payment.objects.create(course_registration=reg, amount=4000, payment_method="card", status="paid")
+
+        res = self.client.post(f"{self.base_url}/{pay.id}/cancel", {}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("이미 취소된 내역입니다.", res.data.get("detail", ""))
+
+    def test_cancel_registration_missing_links_400(self):
+        """
+        결제에 연결된 신청 내역이 전혀 없으면 400을 반환한다.
+        (뷰의 _lock_payment_or_404를 패치해 무연결 결제를 강제로 주입)
+        """
+        mock_payment = SimpleNamespace(course_registration_id=None, test_registration_id=None, status="paid")
+        with patch("payments.views.post_viewset.PaymentViewSet._lock_payment_or_404", return_value=mock_payment):
+            res = self.client.post(f"{self.base_url}/123456/cancel", {}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("연결된 신청 내역이 없습니다.", res.data.get("detail", ""))
+
+    def test_private_get_registration_or_400_raises_400(self):
+        """
+        _get_registration_or_400: 연결된 신청이 없으면 400 예외 발생
+        """
+        from payments.views.post_viewset import PaymentViewSet
+        view = PaymentViewSet()
+        dummy = SimpleNamespace(course_registration=None, test_registration=None)
+        with self.assertRaises(APIException) as cm:
+            view._get_registration_or_400(dummy)
+        self.assertEqual(getattr(cm.exception, "status_code", None), status.HTTP_400_BAD_REQUEST)
+
+    def test_private_get_payment_or_404_raises_404(self):
+        """
+        _get_payment_or_404: 내부 get_object가 Http404를 일으키면 404 APIException으로 변환
+        """
+        from payments.views.post_viewset import PaymentViewSet
+        view = PaymentViewSet()
+        with patch.object(PaymentViewSet, "get_object", side_effect=Http404()):
+            with self.assertRaises(APIException) as cm:
+                view._get_payment_or_404()
+        self.assertEqual(getattr(cm.exception, "status_code", None), status.HTTP_404_NOT_FOUND)
+
+    def test_cancel_conflict_invalid_status(self):
+        """
+        신청 상태가 허용 목록에 없으면 409를 반환한다.
+        (registered/in_progress/completed/cancelled 외의 값)
+        """
+        course = self._make_course()
+        # choices와 무관하게 DB에는 저장 가능
+        reg = CourseRegistration.objects.create(user=self.user, course=course, status="unknown")
+        pay = Payment.objects.create(course_registration=reg, amount=1234, payment_method="card", status="paid")
+
+        res = self.client.post(f"{self.base_url}/{pay.id}/cancel", {}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("취소할 수 있는 상태가 아닙니다.", res.data.get("detail", ""))
+
+    def test_private_get_registration_or_400_returns_registration(self):
+        view = PaymentViewSet()
+        course = self._make_course()
+        reg = CourseRegistration.objects.create(user=self.user, course=course, status="registered")
+        dummy_payment = SimpleNamespace(course_registration=reg, test_registration=None)
+        got = view._get_registration_or_400(dummy_payment)
+        self.assertEqual(got.id, reg.id)
