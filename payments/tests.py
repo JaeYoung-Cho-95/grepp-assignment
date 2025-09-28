@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
+from django.test import SimpleTestCase
 from unittest.mock import patch
 from types import SimpleNamespace
 from django.http import Http404
@@ -12,6 +13,7 @@ from payments.views.post_viewset import PaymentViewSet
 from courses.models import Course, CourseRegistration
 from tests.models import Test, TestRegistration
 from payments.models import Payment
+from payments.serializers.payment_list_serializer import PaymentListSerializer
 
 
 class MePaymentsViewSetTests(APITestCase):
@@ -380,3 +382,14 @@ class PaymentCancelViewSetTests(APITestCase):
         dummy_payment = SimpleNamespace(course_registration=reg, test_registration=None)
         got = view._get_registration_or_400(dummy_payment)
         self.assertEqual(got.id, reg.id)
+
+
+class PaymentListSerializerUnitTests(SimpleTestCase):
+    def test_get_can_refund_returns_false_when_no_registration_links(self):
+        """
+        course_registration_id/test_registration_id가 모두 없으면 False를 반환한다
+        (모델 제약상 실서비스에선 없음. 그냥 커버리지를 위해..)
+        """
+        dummy = SimpleNamespace(course_registration_id=None, test_registration_id=None)
+        serializer = PaymentListSerializer()
+        self.assertFalse(serializer.get_can_refund(dummy))
