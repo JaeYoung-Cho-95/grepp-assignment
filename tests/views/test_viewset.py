@@ -11,11 +11,13 @@ from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_RE
 from django.db import transaction
 from tests.serializers.test_apply_serializer import TestApplySerializer
 from payments.models import Payment
+from assignment.config.pagination_config import CustomPagination
 
 
 class TestViewSet(ListModelMixin, GenericViewSet):
     serializer_class = TestListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         user = self.request.user

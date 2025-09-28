@@ -16,8 +16,9 @@ class Test(models.Model):
     class Meta:
         db_table = 'tests'
         indexes = [
-            models.Index(fields=['created_at']),
-            models.Index(fields=['is_active']),
+            models.Index(fields=['registrations_count']),
+            models.Index(fields=['is_active', 'start_at', 'end_at']),
+            models.Index(fields=['created_at'])
         ]
 
     def clean(self):
@@ -26,7 +27,6 @@ class Test(models.Model):
 
     def __str__(self):
         return self.title
-
 
 
 class TestRegistration(models.Model):
