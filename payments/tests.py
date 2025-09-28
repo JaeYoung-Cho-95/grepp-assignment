@@ -129,7 +129,7 @@ class MePaymentsViewSetTests(APITestCase):
         """
         res = self.client.get(f"{self.base_url}?status=pending")
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("status", res.data)
+        self.assertIn("허용값", res.data.get("detail", ""))
 
     def test_filter_paid_with_date_range(self):
         """
@@ -201,7 +201,7 @@ class MePaymentsViewSetTests(APITestCase):
         """
         res = self.client.get(f"{self.base_url}?status=paid&from=2025-13-01")
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("from/to", res.data)
+        self.assertIn("YYYY-MM-DD", res.data.get("detail", ""))
 
 
 class PaymentCancelViewSetTests(APITestCase):
