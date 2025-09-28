@@ -47,11 +47,12 @@ class TestViewSetTests(APITestCase):
 
         res = self.client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = [item["id"] for item in res.data]
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = [item["id"] for item in items]
         self.assertIn(t1.id, ids)
         self.assertIn(t2.id, ids)
 
-        d = {item["id"]: item for item in res.data}
+        d = {item["id"]: item for item in items}
         self.assertTrue(d[t1.id]["is_registered"])
         self.assertFalse(d[t2.id]["is_registered"])
 
@@ -67,7 +68,8 @@ class TestViewSetTests(APITestCase):
 
         res = self.client.get(f"{self.base_url}?status=available")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = {item["id"] for item in res.data}
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = {item["id"] for item in items}
         self.assertIn(available.id, ids)
         self.assertNotIn(registered.id, ids)
         self.assertNotIn(future.id, ids)
@@ -88,7 +90,8 @@ class TestViewSetTests(APITestCase):
 
         res = self.client.get(f"{self.base_url}?sort=popular")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = [item["id"] for item in res.data]
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = [item["id"] for item in items]
         self.assertTrue(ids.index(t2.id) < ids.index(t1.id))
 
     def test_apply_success(self):

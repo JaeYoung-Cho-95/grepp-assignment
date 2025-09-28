@@ -48,12 +48,12 @@ class CourseViewSetTests(APITestCase):
 
         res = self.client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        
-        ids = [item["id"] for item in res.data]
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = [item["id"] for item in items]
         self.assertIn(c1.id, ids)
         self.assertIn(c2.id, ids)
 
-        d_by_id = {item["id"]: item for item in res.data}
+        d_by_id = {item["id"]: item for item in items}
         self.assertTrue(d_by_id[c1.id]["is_registered"])
         self.assertFalse(d_by_id[c2.id]["is_registered"])
 
@@ -73,7 +73,8 @@ class CourseViewSetTests(APITestCase):
 
         res = self.client.get(f"{self.base_url}?status=available")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = {item["id"] for item in res.data}
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = {item["id"] for item in items}
         self.assertIn(available.id, ids)
         self.assertNotIn(registered.id, ids)
         self.assertNotIn(future.id, ids)
@@ -97,7 +98,8 @@ class CourseViewSetTests(APITestCase):
 
         res = self.client.get(f"{self.base_url}?sort=popular")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = [item["id"] for item in res.data]
+        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
+        ids = [item["id"] for item in items]
         # c2가 더 인기 있으므로 앞에 와야 함
         self.assertTrue(ids.index(c2.id) < ids.index(c1.id))
 
