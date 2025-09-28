@@ -11,7 +11,7 @@ class Test(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    registrations_count = models.PositiveIntegerField(default=0, db_index=True)
+    registrations_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'tests'
