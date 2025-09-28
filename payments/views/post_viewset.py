@@ -21,11 +21,21 @@ class PaymentViewSet(GenericViewSet):
         self._validate_not_completed_or_409(registration)
 
         with transaction.atomic():
-            deleted_registration_id = registration.id
-            registration.delete()
+            if getattr(registration, "status", "registered") != "cancelled":
+                registration.status = "cancelled"
+                registration.save(update_fields=["status"]) 
+
+            if payment.status != "cancelled":
+                payment.status = "cancelled"
+            payment.save(update_fields=["status"]) 
 
         return Response(
-            {"detail": "결제가 취소되었습니다.", "deleted_registration_id": deleted_registration_id},
+            {
+                "detail": "결제가 취소되었습니다.",
+                "registration_id": registration.id,
+                "payment_id": payment.id,
+                "status": "cancelled",
+            },
             status=HTTP_200_OK,
         )
         
