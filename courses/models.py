@@ -11,13 +11,14 @@ class Course(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    registrations_count = models.PositiveIntegerField(default=0, db_index=True)
+    registrations_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'courses'
         indexes = [
-            models.Index(fields=['created_at']),
-            models.Index(fields=['is_active']),
+            models.Index(fields=['registrations_count']),
+            models.Index(fields=['is_active', 'start_at', 'end_at']),
+            models.Index(fields=['created_at'])
         ]
 
     def clean(self):
