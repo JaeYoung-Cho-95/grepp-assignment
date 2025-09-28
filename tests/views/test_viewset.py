@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from tests.serializers.test_apply_serializer import TestApplySerializer
 from payments.models import Payment
 from assignment.config.pagination_config import CustomPagination
@@ -33,13 +33,15 @@ class TestViewSet(ListModelMixin, GenericViewSet):
         test = self._get_test_or_404(pk)
         self._validate_test_is_applicable(test)
         self._ensure_not_already_applied(request.user, test)
-
-        with transaction.atomic():
-            test_registration = self._create_registration(request.user, test)
-            payment = self._create_payment(test_registration, serializer.validated_data)
-
-        return Response(self._build_apply_response(test_registration, payment), status=HTTP_201_CREATED)
-
+        registration, payment = self._perform_apply_transaction(request.user, test, serializer.validated_data)
+        return Response(
+            data={
+                'registration_id': registration.id,
+                'payment_id': payment.id,
+                'status': 'paid',
+            },
+            status=HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['post'], url_path='complete')
     def complete(self, request, pk=None):
@@ -97,12 +99,17 @@ class TestViewSet(ListModelMixin, GenericViewSet):
             status='paid',
         )
 
-    def _build_apply_response(self, registration, payment):
-        return {
-            'registration_id': registration.id,
-            'payment_id': payment.id,
-            'status': 'paid',
-        }
+    def _perform_apply_transaction(self, user, test, validated_data):
+        with transaction.atomic():
+            try:
+                registration = self._create_registration(user, test)
+            except IntegrityError:
+                raise self._error(HTTP_409_CONFLICT, '이미 응시 신청된 시험입니다.')
+            try:
+                payment = self._create_payment(registration, validated_data)
+            except IntegrityError:
+                raise self._error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
+        return registration, payment
 
     def _validate_test_is_completable(self, test):
         now = timezone.now()

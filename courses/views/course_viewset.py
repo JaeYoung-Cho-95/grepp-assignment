@@ -1,5 +1,5 @@
 from django.db.models import Exists, OuterRef
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from courses.models import Course, CourseRegistration
 from courses.serializers.course_list_serializer import CourseListSerializer
 from django.utils import timezone
@@ -44,11 +44,15 @@ class CourseViewSet(ListModelMixin, GenericViewSet):
         self._validate_course_is_enrollable(course)
         self._ensure_not_already_registered(request.user, course)
 
-        with transaction.atomic():
-            course_registration = self._create_registration(request.user, course)
-            payment = self._create_payment(course_registration, serializer.validated_data)
-
-        return Response(self._build_enroll_response(course_registration, payment), status=HTTP_201_CREATED)
+        registration, payment = self._perform_enroll_transaction(request.user, course, serializer.validated_data)
+        return Response(
+            data={
+                'registration_id': registration.id,
+                'payment_id': payment.id,
+                'status': 'paid',
+            },
+            status=HTTP_201_CREATED,
+        )
 
     def _base_queryset_with_registration_flag(self, user):
         return Course.objects.all().annotate(
@@ -96,12 +100,17 @@ class CourseViewSet(ListModelMixin, GenericViewSet):
             status='paid',
         )
 
-    def _build_enroll_response(self, registration, payment):
-        return {
-            'registration_id': registration.id,
-            'payment_id': payment.id,
-            'status': 'paid',
-        }
+    def _perform_enroll_transaction(self, user, course, validated_data):
+        with transaction.atomic():
+            try:
+                registration = self._create_registration(user, course)
+            except IntegrityError:
+                raise self._error(HTTP_409_CONFLICT, '이미 수업 수강 신청된 수업입니다.')
+            try:
+                payment = self._create_payment(registration, validated_data)
+            except IntegrityError:
+                raise self._error(HTTP_409_CONFLICT, '결제 정보가 이미 생성되었습니다.')
+        return registration, payment
 
     def _validate_course_is_completable(self, course):
         now = timezone.now()
