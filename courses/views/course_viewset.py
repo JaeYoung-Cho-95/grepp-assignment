@@ -8,13 +8,16 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 from courses.serializers.course_enroll_serializer import CourseEnrollSerializer
 from rest_framework.mixins import ListModelMixin
+from assignment.config.pagination_config import CustomPagination
 from rest_framework.viewsets import GenericViewSet
 from payments.models import Payment
 from rest_framework.permissions import IsAuthenticated
 
+
 class CourseViewSet(ListModelMixin, GenericViewSet):
     serializer_class = CourseListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         user = self.request.user
