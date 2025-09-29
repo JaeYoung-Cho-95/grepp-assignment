@@ -1,0 +1,67 @@
+erDiagram
+	direction BT
+	USER {
+		bigint id PK
+		varchar email
+		boolean is_staff 
+		boolean is_active  
+		datetime created_at   
+		datetime updated_at  
+	}
+	COURSE {
+		bigint id PK 
+		varchar title  
+		datetime start_at  
+		datetime end_at  
+		boolean is_active  
+		datetime created_at  
+		datetime updated_at  
+		int registrations_count  
+	}
+	TEST {
+		bigint id PK 
+		varchar title  
+		datetime start_at  
+		datetime end_at  
+		boolean is_active  
+		datetime created_at  
+		datetime updated_at 
+		int registrations_count  
+	}
+	COURSE_REGISTRATION {
+		bigint id PK   
+		bigint user_id FK 
+		bigint course_id FK 
+		datetime created_at  
+		varchar status  
+		datetime attempted_at  
+	}
+	TEST_REGISTRATION {
+		bigint id PK   
+		bigint user_id FK 
+		bigint test_id FK 
+		datetime created_at  
+		varchar status  
+		datetime attempted_at  
+	}
+	PAYMENT {
+		bigint id PK 
+		bigint course_registration_id FK 
+		bigint test_registration_id FK   
+		int amount  
+		varchar payment_method  
+		varchar status  
+		datetime paid_at  
+		datetime canceled_at 
+		datetime created_at  
+		datetime updated_at  
+	}
+
+	USER||--o{COURSE_REGISTRATION:"has"
+    USER||--o{TEST_REGISTRATION:"has"
+
+	COURSE||--o{COURSE_REGISTRATION:"has"
+	TEST||--o{TEST_REGISTRATION:"has"
+
+	COURSE_REGISTRATION|o--o|PAYMENT:"0..1"
+	TEST_REGISTRATION|o--o|PAYMENT:"0..1"
