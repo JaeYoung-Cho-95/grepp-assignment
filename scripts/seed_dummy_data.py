@@ -20,6 +20,11 @@ from tests.models import Test, TestRegistration
 from payments.models import Payment
 from django.db import connection
 
+def random_recent_datetime(max_days=60):
+    now_ts = timezone.now()
+    seconds = random.randint(0, max_days * 24 * 3600)
+    return now_ts - timedelta(seconds=seconds)
+
 def ensure_admin():
     User = get_user_model()
     admin_email = "admin@example.com"
@@ -170,7 +175,7 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
                     status=status,
                     attempted_at=attempted_at,
                 ))
-        # 대량 생성(중복 무시)
+
         created = CourseRegistration.objects.bulk_create(
             reg_objs,
             ignore_conflicts=True,
@@ -178,7 +183,6 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
         )
         total_regs_created += len(created)
 
-        # 결제: 방금 대상 중 결제 없는 등록만 조회 후 대량 생성
         pair_course_ids = [c for (_, c, _) in planned_pairs]
         regs_without_payment_qs = CourseRegistration.objects.filter(
             user_id__in=batch_user_ids,
@@ -191,18 +195,25 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
         for row in regs_without_payment_qs:
             reg_id = row['id']
             r_status = row['status']
-            # 결제 상태 분포: 취소된 등록은 환불/취소 위주, 그 외는 유료 위주
             if r_status == 'cancelled':
                 p_status = random.choices(['refunded', 'cancelled'], weights=[70, 30], k=1)[0]
             else:
                 p_status = random.choices(['paid', 'pending', 'failed'], weights=[95, 3, 2], k=1)[0]
+            # created_at을 기준 시각으로 먼저 생성
+            created_at_ts = random_recent_datetime(90)
             paid_at = None
             canceled_at = None
-            now_ts = timezone.now()
             if p_status == 'paid':
-                paid_at = now_ts
+                # created_at 이후 최대 72시간 내 결제 완료
+                paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             if p_status in ('cancelled', 'refunded'):
-                canceled_at = now_ts
+                if random.random() < 0.7:
+                    # 결제 후 취소/환불: created_at 이후 결제 → 그 후 72시간 내 취소
+                    paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
+                    canceled_at = min(timezone.now(), paid_at + timedelta(hours=random.randint(0, 72)))
+                else:
+                    # 결제 없이 바로 취소/환불처럼 보이도록 created_at 이후 임의시간
+                    canceled_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             payment_objs.append(Payment(
                 course_registration_id=reg_id,
                 amount=random.randint(10_000, 200_000),
@@ -210,6 +221,7 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
                 status=p_status,
                 paid_at=paid_at,
                 canceled_at=canceled_at,
+                created_at=created_at_ts,
             ))
         payments_created = Payment.objects.bulk_create(
             payment_objs,
@@ -240,7 +252,6 @@ def seed_test_registrations_and_payments(users_limit=50_000, registrations_per_u
     }
     reg_statuses = ['registered', 'in_progress', 'completed', 'cancelled']
     reg_weights = [60, 20, 15, 5]
-    # 테스트도 인기/일반 구간으로 분산
     hot_size = max(1, min(len(available_test_ids), 800))
     warm_size = max(1, min(len(available_test_ids) - hot_size, 4000))
     hot_ids = available_test_ids[:hot_size]
@@ -302,13 +313,17 @@ def seed_test_registrations_and_payments(users_limit=50_000, registrations_per_u
                 p_status = random.choices(['refunded', 'cancelled'], weights=[70, 30], k=1)[0]
             else:
                 p_status = random.choices(['paid', 'pending', 'failed'], weights=[95, 3, 2], k=1)[0]
+            created_at_ts = random_recent_datetime(90)
             paid_at = None
             canceled_at = None
-            now_ts = timezone.now()
             if p_status == 'paid':
-                paid_at = now_ts
+                paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             if p_status in ('cancelled', 'refunded'):
-                canceled_at = now_ts
+                if random.random() < 0.7:
+                    paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
+                    canceled_at = min(timezone.now(), paid_at + timedelta(hours=random.randint(0, 72)))
+                else:
+                    canceled_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             payment_objs.append(Payment(
                 test_registration_id=reg_id,
                 amount=random.randint(10_000, 200_000),
@@ -316,6 +331,7 @@ def seed_test_registrations_and_payments(users_limit=50_000, registrations_per_u
                 status=p_status,
                 paid_at=paid_at,
                 canceled_at=canceled_at,
+                created_at=created_at_ts,
             ))
         payments_created = Payment.objects.bulk_create(
             payment_objs,

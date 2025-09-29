@@ -18,7 +18,6 @@ from payments.models import Payment
 from django.db import connection, transaction
 
 def main():
-    # 대량 데이터 초기화에 적합: TRUNCATE로 연쇄 삭제 + 시퀀스 초기화
     tables = [
         'payments',
         'course_registrations',
@@ -33,11 +32,9 @@ def main():
             )
     print(f"TRUNCATE 완료: {', '.join(tables)} (RESTART IDENTITY CASCADE)")
 
-    # 4) 사용자 삭제 (슈퍼유저는 보존)
     User = get_user_model()
     deleted = User.objects.filter(is_superuser=False).delete()
     print(f"User(슈퍼유저 제외) 삭제: {deleted}")
-
     print("DB 정리 완료.")
 
 if __name__ == "__main__":
