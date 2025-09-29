@@ -30,6 +30,7 @@ git clone https://github.com/JaeYoung-Cho-95/grepp-assignment.git
 ### 2. 최초 실행
 "docker container 띄우기 > migration > seed dummy data 만들기" 과정을 한번에 진행합니다.
 ```shell
+cd ./grepp-assignment
 sh start_with_make_seed_data.sh
 ```
 
