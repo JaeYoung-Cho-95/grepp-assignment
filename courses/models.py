@@ -5,7 +5,7 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 
 class Course(models.Model):
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=200, unique=True)
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
