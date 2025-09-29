@@ -1,0 +1,1 @@
+locust -f ./scripts/locustfile.py --host http://localhost:8000
