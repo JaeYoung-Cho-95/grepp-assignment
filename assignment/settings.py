@@ -167,3 +167,18 @@ SPECTACULAR_SETTINGS = {
         {'name': '시험', 'description': '시험 조회/신청/완료'},
     ],
 }
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django.db.backends": { 
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    },
+}
