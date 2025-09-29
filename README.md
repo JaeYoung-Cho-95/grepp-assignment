@@ -15,7 +15,7 @@
 
 <br>
 
-<a id="#start"></a>
+<a id="start"></a>
 # 실행 방법 🏃
 docker 가 설치되어있어야 합니다. <br>
 docker install : https://docs.docker.com/engine/install/
@@ -46,14 +46,14 @@ docker compose up -d
 
 <br>
 
-<a id="#api"></a>
+<a id="api"></a>
 # API 문서 & Swagger 📋
 - Base URL: `http://localhost:8000`
 - 인증: Bearer JWT (로그인으로 `access` 발급 후 `Authorization: Bearer <token>` 헤더 사용)
 - 스웨거 
     - url : `http://localhost:8000/admin`
     - login 에 적혀있는 example body 에 적혀있는 id / password 그대로 사용 가능합니다.
-    - access token 만 복사해 우측 상단 
+    - access token 만 복사해 우측 상단 authorize 에 붙여넣기
 - admin
     - url : `http://localhost:8000/api/docs`
     - id : admin@example.com
@@ -273,19 +273,36 @@ docker compose up -d
 
 <br>
 
-<a id="#point"></a>
+<a id="point"></a>
 # 개발하며 신경썼던 부분 ✅
+
+### 수업/시험 조회
+1. N+1 예방
+2. 정렬 / 필터에 대한 인덱싱 (비즈니스 관점에서 테스트/수업에 대한 write 가 많이 없다고 추측)
+3. 페이지네이션 적용
+4. 시험/수업 조회 공통 로직 Registrable 추상화
+
+### 수업/시험 신청 및 결제
+1. transaction.atomic()으로 신청 생성과 결제 생성을 하나의 트랜잭션으로 처리
+2. 수업 및 시험 중복 신청 검증
+3. 신청/완료 공통 로직(Registrable) 추상화
+
+### 결제 취소
+1. select_for_update()로 결제/신청 레코드 비관적 락킹 후 트랜잭션 내 상태 전이
+2. '결제 소유자 확인', '완료/이미 취소된 내역 거부', '취소 가능 상태(수업 완료 시 거부)' 등 검증
+3. 결제 취소 시 소프트 delete 방식을 선택. > 연결되 registration 도 status 상태값 전이
+
 
 <br>
 
-<a id="#erd"></a>
+<a id="erd"></a>
 # ERD 
 
 <img src="./erd.png">
 
 <br>
 
-<a id="#dir_structure"></a>
+<a id="dir_structure"></a>
 # 폴더 구조 🗂️
 ```
 /assignment
@@ -338,7 +355,7 @@ docker compose up -d
 
 <br>
 
-<a id="#test_code"></a>
+<a id="test_code"></a>
 ## 테스트 커버리지 확인하기
 
 <img src="./test_coverage.png">
@@ -353,5 +370,9 @@ sh make_coverage_html.sh
 
 <br>
 
-<a id="#road_map"></a>
+<a id="road_map"></a>
 # 개선 포인트 👉
+
+- Gist 인덱싱 적용 : period = DateTimeRangeField 추가 후 GiST 인덱스 적용
+
+- 리스트 캐시: Redis로 GET /courses, GET /tests 결과를 사용자+쿼리별로 30~60초 캐싱
