@@ -18,7 +18,8 @@ class Course(models.Model):
         db_table = 'courses'
         indexes = [
             models.Index(fields=['registrations_count']),
-            models.Index(fields=['is_active', 'start_at', 'end_at']),
+            models.Index(fields=['is_active', 'start_at'], name='courses_active_start_idx'),
+            models.Index(fields=['is_active', 'end_at'], name='courses_active_end_idx'),
             models.Index(fields=['created_at'])
         ]
 
