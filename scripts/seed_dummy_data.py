@@ -12,6 +12,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "assignment.settings")
 import django
 django.setup()
 
+import logging
+_db_logger = logging.getLogger('django.db.backends')
+_db_logger.disabled = True
+_db_logger.handlers.clear()
+_db_logger.propagate = False
+
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
