@@ -5,7 +5,7 @@
 <br>
 
 # 목차 📚
-- [실행 방법](#start)
+- [실행 방법 (seed data 생성)](#start)
 - [API 문서 & swagger](#api)
 - [개발하며 신경썼던 부분](#point)
 - [ERD](#erd)
@@ -16,7 +16,7 @@
 <br>
 
 <a id="start"></a>
-# 실행 방법 🏃
+# 실행 방법 (seed data 생성) 🏃
 docker 가 설치되어있어야 합니다. <br>
 docker install : https://docs.docker.com/engine/install/
 
