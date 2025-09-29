@@ -47,7 +47,6 @@ class CourseViewSetTests(APITestCase):
         """
         c1 = self._make_course(title="Active-1", start_delta=-1, end_delta=1, is_active=True)
         c2 = self._make_course(title="Future", start_delta=1, end_delta=2, is_active=True)
-        # c1에 현재 사용자 등록
         CourseRegistration.objects.create(user=self.user, course=c1)
 
         res = self.client.get(self.base_url)
@@ -65,14 +64,11 @@ class CourseViewSetTests(APITestCase):
         """
         status=available 쿼리로 활성+기간 내+미등록 항목만 반환한다.
         """
-        # 사용 가능: is_active=True 이고 now 범위 안이며, 아직 미등록
         available = self._make_course(title="Available", start_delta=-1, end_delta=1, is_active=True)
-        # 이미 등록된 코스
         registered = self._make_course(title="Registered", start_delta=-1, end_delta=1, is_active=True)
         CourseRegistration.objects.create(user=self.user, course=registered)
-        # 시간 범위 밖
+
         future = self._make_course(title="Future", start_delta=1, end_delta=2, is_active=True)
-        # 비활성
         inactive = self._make_course(title="Inactive", start_delta=-1, end_delta=1, is_active=False)
 
         res = self.client.get(f"{self.base_url}?status=available")
@@ -89,11 +85,9 @@ class CourseViewSetTests(APITestCase):
         """
         sort=popular 시 registrations_count 내림차순(동률 시 created_at 내림차순)으로 정렬된다.
         """
-        # 인기 정렬은 registrations_count 내림차순, 동률이면 created_at 내림차순
         c1 = self._make_course(title="C1", start_delta=-1, end_delta=1)
         c2 = self._make_course(title="C2", start_delta=-1, end_delta=1)
 
-        # 다른 사용자 2명 추가하여 c2에 2명 등록, c1에 1명 등록
         u2 = self.User.objects.create_user(email="u2@example.com", password="Str0ngP@ss!")
         u3 = self.User.objects.create_user(email="u3@example.com", password="Str0ngP@ss!")
         CourseRegistration.objects.create(user=self.user, course=c1)
@@ -104,7 +98,7 @@ class CourseViewSetTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         items = res.data if isinstance(res.data, list) else res.data.get("results", [])
         ids = [item["id"] for item in items]
-        # c2가 더 인기 있으므로 앞에 와야 함
+
         self.assertTrue(ids.index(c2.id) < ids.index(c1.id))
 
     def test_enroll_success(self):
@@ -141,12 +135,10 @@ class CourseViewSetTests(APITestCase):
         """
         비활성 또는 기간 외 코스 신청 시 400을 반환한다.
         """
-        # 비활성
         inactive = self._make_course(title="Inactive", start_delta=-1, end_delta=1, is_active=False)
         res1 = self.client.post(f"{self.base_url}/{inactive.id}/enroll", {"amount": 10000, "payment_method": "card"}, format="json")
         self.assertEqual(res1.status_code, status.HTTP_400_BAD_REQUEST)
 
-        # 시간 범위 밖(미시작)
         future = self._make_course(title="Future", start_delta=1, end_delta=2, is_active=True)
         res2 = self.client.post(f"{self.base_url}/{future.id}/enroll", {"amount": 10000, "payment_method": "card"}, format="json")
         self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
@@ -212,13 +204,11 @@ class CourseViewSetTests(APITestCase):
         """
         비활성 또는 기간 외 코스에 대해 완료 요청 시 400을 반환한다.
         """
-        # 비활성
         inactive = self._make_course(title="Inactive", start_delta=-1, end_delta=1, is_active=False)
         CourseRegistration.objects.create(user=self.user, course=inactive, status="registered")
         res1 = self.client.post(f"{self.base_url}/{inactive.id}/complete", {}, format="json")
         self.assertEqual(res1.status_code, status.HTTP_400_BAD_REQUEST)
 
-        # 시간 범위 밖(미시작)
         future = self._make_course(title="Future", start_delta=1, end_delta=2, is_active=True)
         CourseRegistration.objects.create(user=self.user, course=future, status="registered")
         res2 = self.client.post(f"{self.base_url}/{future.id}/complete", {}, format="json")

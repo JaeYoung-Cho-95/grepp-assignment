@@ -8,7 +8,6 @@ class APIUser(HttpUser):
     wait_time = between(0.3, 1.0)
 
     def on_start(self):
-        # 테스트용 계정 자동 생성 → 로그인
         self.email = f"lo_{random.randint(10_000_000,99_999_999)}@example.com"
         self.password = "Passw0rd!1"
         self.token = None
@@ -42,7 +41,6 @@ class APIUser(HttpUser):
         return random.choice([0, limit, limit * 2, limit * 3])
 
 
-    # 1) 코스 목록
     @tag("courses_list")
     @task
     def courses_list_default(self):
@@ -69,8 +67,7 @@ class APIUser(HttpUser):
         limit = self._rand_limit()
         offset = self._rand_offset(limit)
         self.client.get(f"/courses?limit={limit}&offset={offset}", headers=self._auth(), name="courses:list:paged")
-
-    # 2) 시험 목록
+        
     @tag("tests_list")
     @task
     def tests_list_default(self):

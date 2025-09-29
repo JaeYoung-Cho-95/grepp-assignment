@@ -34,6 +34,6 @@ router.register(r'me/payments', MePaymentsViewSet, basename='me_payment')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('signup', SignUpView.as_view()),
-    path('login', TokenObtainPairView.as_view()), # 로그인은 TokenObtainPairView 사용
+    path('login', TokenObtainPairView.as_view()),
     path('', include(router.urls)),
 ]

@@ -19,7 +19,6 @@ class Payment(models.Model):
         ("refunded", "refunded"),
     ]
 
-    # 결제 대상: 수업 수강 신청 또는 시험 응시 신청 중 하나
     course_registration = models.OneToOneField(
         "courses.CourseRegistration",
         on_delete=models.CASCADE,

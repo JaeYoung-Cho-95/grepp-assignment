@@ -62,10 +62,9 @@ def seed_courses(n=1_000_000, batch_size=10_000):
     batch = []
     created_total = 0
     for i in range(existing, n):
-        # 다양성: 일부는 과거/미래, 일부는 비활성
         start_at = now - timedelta(days=(i % 5))
         end_at = now + timedelta(days=((i % 10) + 1))
-        is_active = (i % 10) != 0  # 약 90% 활성
+        is_active = (i % 10) != 0
         batch.append(Course(
             title=f"Course {i}",
             start_at=start_at,
@@ -96,7 +95,7 @@ def seed_tests(n=1_000_000, batch_size=10_000):
     for i in range(existing, n):
         start_at = now - timedelta(days=(i % 3))
         end_at = now + timedelta(days=((i % 5) + 1))
-        is_active = (i % 12) != 0  # 약 91.7% 활성
+        is_active = (i % 12) != 0
         batch.append(Test(
             title=f"Test {i}",
             start_at=start_at,
@@ -127,15 +126,12 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
     if not available_course_ids:
         print("CourseRegistration 스킵: 사용 가능한 수업이 없습니다.")
         return
-    # 코스 기간 메타 캐시
     course_meta = {
         row['id']: (row['start_at'], row['end_at'])
         for row in Course.objects.filter(id__in=available_course_ids).values('id', 'start_at', 'end_at')
     }
-    # 상태 분포
     reg_statuses = ['registered', 'in_progress', 'completed', 'cancelled']
     reg_weights = [60, 20, 15, 5]
-    # 인기/일반 구간으로 나눠 등록 수 편차를 크게 만듦
     hot_size = max(1, min(len(available_course_ids), 500))
     warm_size = max(1, min(len(available_course_ids) - hot_size, 2000))
     hot_ids = available_course_ids[:hot_size]
@@ -165,7 +161,6 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
                     c_start, c_end = course_meta.get(course_id, (now, now))
                     end_bound = min(c_end, now)
                     if c_start < end_bound:
-                        # 무작위 완료 시각
                         delta_sec = int((end_bound - c_start).total_seconds())
                         attempted_at = c_start + timedelta(seconds=random.randint(0, max(delta_sec, 1)))
                 planned_pairs.append((user_id, course_id, status))
@@ -199,20 +194,17 @@ def seed_course_registrations_and_payments(users_limit=50_000, registrations_per
                 p_status = random.choices(['refunded', 'cancelled'], weights=[70, 30], k=1)[0]
             else:
                 p_status = random.choices(['paid', 'pending', 'failed'], weights=[95, 3, 2], k=1)[0]
-            # created_at을 기준 시각으로 먼저 생성
+
             created_at_ts = random_recent_datetime(90)
             paid_at = None
             canceled_at = None
             if p_status == 'paid':
-                # created_at 이후 최대 72시간 내 결제 완료
                 paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             if p_status in ('cancelled', 'refunded'):
                 if random.random() < 0.7:
-                    # 결제 후 취소/환불: created_at 이후 결제 → 그 후 72시간 내 취소
                     paid_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
                     canceled_at = min(timezone.now(), paid_at + timedelta(hours=random.randint(0, 72)))
                 else:
-                    # 결제 없이 바로 취소/환불처럼 보이도록 created_at 이후 임의시간
                     canceled_at = min(timezone.now(), created_at_ts + timedelta(hours=random.randint(0, 72)))
             payment_objs.append(Payment(
                 course_registration_id=reg_id,
@@ -382,13 +374,10 @@ def rebuild_test_registration_counts():
 def main():
     ensure_admin()
     seed_users(n=50_000)
-    # 대량 데이터 생성: 수업 100만, 시험 100만
     seed_courses(n=1_000_000, batch_size=10_000)
     seed_tests(n=1_000_000, batch_size=10_000)
-    # 등록 및 결제 생성: 사용자당 1개씩 예시
     seed_course_registrations_and_payments(users_limit=50_000, registrations_per_user=1)
     seed_test_registrations_and_payments(users_limit=50_000, registrations_per_user=1)
-    # 카운터 재계산 (배치 생성은 post_save 신호가 발생하지 않음)
     rebuild_course_registration_counts()
     rebuild_test_registration_counts()
     print("더미 데이터 생성 완료.")

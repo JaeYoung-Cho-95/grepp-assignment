@@ -12,9 +12,6 @@ import django
 django.setup()
 
 from django.contrib.auth import get_user_model
-from courses.models import Course, CourseRegistration
-from tests.models import Test, TestRegistration
-from payments.models import Payment
 from django.db import connection, transaction
 
 def main():
