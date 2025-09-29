@@ -24,5 +24,5 @@ COPY . /app/
 # Django 기본 포트 8000번 노출
 EXPOSE 8000
 
-# --- 컨테이너 실행
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# --- 컨테이너 실행: Gunicorn 멀티 워커로 Django WSGI 실행
+CMD ["gunicorn", "assignment.wsgi:application", "-b", "0.0.0.0:8000", "-w", "4", "--worker-class", "gthread", "--threads", "2", "--timeout", "60"]
