@@ -52,11 +52,11 @@ docker compose up -d
 - Base URL: `http://localhost:8000`
 - 인증: Bearer JWT (로그인으로 `access` 발급 후 `Authorization: Bearer <token>` 헤더 사용)
 - 스웨거 
-    - url : `http://localhost:8000/admin`
+    - url : `http://localhost:8000/api/docs`
     - login 에 적혀있는 example body 에 적혀있는 id / password 그대로 사용 가능합니다.
     - access token 만 복사해 우측 상단 authorize 에 붙여넣기
 - admin
-    - url : `http://localhost:8000/api/docs`
+    - url : `http://localhost:8000/admin`
     - id : admin@example.com
     - password : admin1234
 
