@@ -3,6 +3,7 @@ from django.conf import settings
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 class Test(models.Model):
     title = models.CharField(max_length=200, unique=True)
@@ -45,11 +46,17 @@ class TestRegistration(models.Model):
 
     class Meta:
         db_table = 'test_registrations'
-        unique_together = ('user', 'test')
         indexes = [
             models.Index(fields=['test']),
             models.Index(fields=['user']),
             models.Index(fields=['status']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'test'],
+                condition=~Q(status='cancelled'),
+                name='uniq_active_test_registration',
+            ),
         ]
 
 @receiver(post_save, sender=TestRegistration)

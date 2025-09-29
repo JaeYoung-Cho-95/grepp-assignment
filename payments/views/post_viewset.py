@@ -1,5 +1,5 @@
 from django.db import transaction
-from rest_framework.exceptions import APIException
+from django.db.models import F
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet
 from django.http import Http404
@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
 from payments.models import Payment
-from courses.models import CourseRegistration
-from tests.models import TestRegistration
+from courses.models import CourseRegistration, Course
+from tests.models import TestRegistration, Test
 from assignment.common.api_errors import api_error
 from drf_spectacular.utils import extend_schema
 
@@ -61,6 +61,15 @@ class PaymentViewSet(GenericViewSet):
         if getattr(registration, "status", "registered") != "cancelled":
             registration.status = "cancelled"
             registration.save(update_fields=["status"]) 
+
+            course_id = getattr(registration, "course_id", None)
+            test_id = getattr(registration, "test_id", None)
+
+            if course_id is not None:
+                Course.objects.filter(pk=course_id).update(registrations_count=F('registrations_count') - 1)
+            if test_id is not None:
+                Test.objects.filter(pk=test_id).update(registrations_count=F('registrations_count') - 1)
+
 
     def _cancel_payment_if_needed(self, payment: Payment) -> None:
         if payment.status != "cancelled":

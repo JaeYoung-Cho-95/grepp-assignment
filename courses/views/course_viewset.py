@@ -63,7 +63,9 @@ class CourseViewSet(BaseRegistrableViewSet):
     def _base_queryset_with_registration_flag(self, user):
         return Course.objects.all().annotate(
             is_registered=Exists(
-                CourseRegistration.objects.filter(user=user, course_id=OuterRef('pk'))
+                CourseRegistration.objects
+                    .filter(user=user, course_id=OuterRef('pk'))
+                    .exclude(status='cancelled')
             ),
         )
 
@@ -79,7 +81,7 @@ class CourseViewSet(BaseRegistrableViewSet):
             raise api_error(400, '수업 수강 가능한 수업이 아닙니다.')
 
     def _ensure_not_already_registered(self, user, course):
-        if CourseRegistration.objects.filter(user=user, course=course).exists():
+        if CourseRegistration.objects.filter(user=user, course=course).exclude(status='cancelled').exists():
             raise api_error(409, '이미 수업 수강 신청된 수업입니다.')
 
     def _create_registration(self, user, course):

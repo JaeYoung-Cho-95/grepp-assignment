@@ -63,7 +63,9 @@ class TestViewSet(BaseRegistrableViewSet):
     def _base_queryset_with_registration_flag(self, user):
         return Test.objects.all().annotate(
             is_registered=Exists(
-                TestRegistration.objects.filter(user=user, test_id=OuterRef('pk'))
+                TestRegistration.objects
+                    .filter(user=user, test_id=OuterRef('pk'))
+                    .exclude(status='cancelled')
             ),
         )
 
@@ -79,7 +81,7 @@ class TestViewSet(BaseRegistrableViewSet):
             raise api_error(400, '응시 가능한 시험이 아닙니다.')
 
     def _ensure_not_already_applied(self, user, test):
-        if TestRegistration.objects.filter(user=user, test=test).exists():
+        if TestRegistration.objects.filter(user=user, test=test).exclude(status='cancelled').exists():
             raise api_error(409, '이미 응시 신청된 시험입니다.')
 
     def _create_registration(self, user, test):
