@@ -57,7 +57,7 @@ docker compose up -d
 - admin
     - url : `http://localhost:8000/api/docs`
     - id : admin@example.com
-    - password : Adm1nP@ss!
+    - password : admin1234
 
 <br>
 
