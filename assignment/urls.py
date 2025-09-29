@@ -17,13 +17,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from accounts.views.signUpview import SignUpView
-from rest_framework_simplejwt.views import TokenObtainPairView
+from accounts.views.login_view import CustomTokenObtainPairView
 from rest_framework.routers import DefaultRouter
 from tests.views.test_viewset import TestViewSet
 from courses.views.course_viewset import CourseViewSet
 from payments.views.post_viewset import PaymentViewSet
 from payments.views.get_viewset import MePaymentsViewSet
 from django.urls import path, include
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 router = DefaultRouter(trailing_slash=False)
 router.register(r'tests', TestViewSet, basename='test')
@@ -31,9 +32,16 @@ router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'me/payments', MePaymentsViewSet, basename='me_payment')
 
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('signup', SignUpView.as_view()),
-    path('login', TokenObtainPairView.as_view()),
+    path('login', CustomTokenObtainPairView.as_view()),
     path('', include(router.urls)),
+    
+    # OpenAPI 스키마 및 문서
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

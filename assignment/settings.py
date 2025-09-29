@@ -136,3 +136,31 @@ AUTH_USER_MODEL = 'accounts.User'
 REST_FRAMEWORK = jwt_config.REST_FRAMEWORK
 
 SIMPLE_JWT = jwt_config.SIMPLE_JWT
+
+# drf-spectacular 설정
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Assignment API',
+    'DESCRIPTION': 'Programmers assignment API 문서',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [
+        {
+            'bearerAuth': []
+        }
+    ],
+    'SERVERS': [
+        {'url': 'http://localhost:8000', 'description': 'Local'},
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'displayOperationId': True,
+    },
+    'SWAGGER_UI_FAVICON_HREF': None,
+    'TAGS': [
+        {'name': '계정', 'description': '회원가입/로그인 등 계정 관련'},
+        {'name': '결제', 'description': '결제, 결제내역 조회/취소'},
+        {'name': '수업', 'description': '수업 조회/신청/완료'},
+        {'name': '시험', 'description': '시험 조회/신청/완료'},
+    ],
+}

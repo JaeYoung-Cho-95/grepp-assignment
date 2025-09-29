@@ -34,6 +34,15 @@ def ensure_admin():
     else:
         print("슈퍼유저 이미 존재:", admin_email)
 
+def ensure_normal_user():
+    User = get_user_model()
+    normal_email = "normal@example.com"
+    if not User.objects.filter(email=normal_email).exists():
+        print("일반 유저 생성:", normal_email)
+        User.objects.create_user(email=normal_email, password="normal1234")
+    else:
+        print("일반 유저 이미 존재:", normal_email)
+
 def seed_users(n=50_000, batch_size=10_000):
     User = get_user_model()
     password_hash = make_password("pass1234")
@@ -372,7 +381,6 @@ def rebuild_test_registration_counts():
     print("Test.registrations_count 재계산 완료")
 
 def main():
-    ensure_admin()
     seed_users(n=50_000)
     seed_courses(n=1_000_000, batch_size=10_000)
     seed_tests(n=1_000_000, batch_size=10_000)
@@ -380,6 +388,8 @@ def main():
     seed_test_registrations_and_payments(users_limit=50_000, registrations_per_user=1)
     rebuild_course_registration_counts()
     rebuild_test_registration_counts()
+    ensure_admin()
+    ensure_normal_user()
     print("더미 데이터 생성 완료.")
 
 if __name__ == "__main__":

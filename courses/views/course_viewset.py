@@ -7,8 +7,21 @@ from courses.serializers.course_enroll_serializer import CourseEnrollSerializer
 from payments.models import Payment
 from assignment.common.api_errors import api_error
 from assignment.common.base_registrable_viewset import BaseRegistrableViewSet
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes, extend_schema_view
 
 
+@extend_schema(tags=['수업'])
+@extend_schema_view(
+    list=extend_schema(
+        summary='수업 조회',
+        parameters=[
+            OpenApiParameter(name='status', type=OpenApiTypes.STR, required=False, description='필터: available만 조회', enum=['available']),
+            OpenApiParameter(name='sort',   type=OpenApiTypes.STR, required=False, description='정렬: created(기본) | popular', enum=['created', 'popular']),
+            OpenApiParameter(name='limit',  type=OpenApiTypes.INT, required=False, description='페이지 크기'),
+            OpenApiParameter(name='offset', type=OpenApiTypes.INT, required=False, description='페이지 오프셋'),
+        ]
+    )
+)
 class CourseViewSet(BaseRegistrableViewSet):
     serializer_class = CourseListSerializer
     apply_serializer_class = CourseEnrollSerializer
@@ -18,6 +31,7 @@ class CourseViewSet(BaseRegistrableViewSet):
         queryset = self._base_queryset_with_registration_flag(user)
         return self.apply_status_and_sort(queryset)
 
+    @extend_schema(request=None, summary='수업 완료')
     @action(detail=True, methods=['post'], url_path='complete')
     def complete(self, request, pk=None):
         return self.do_complete(
@@ -30,6 +44,7 @@ class CourseViewSet(BaseRegistrableViewSet):
             mark_registration_completed=self.mark_registration_completed_default,
         )
     
+    @extend_schema(request=CourseEnrollSerializer, summary='수업 수강 신청')
     @action(detail=True, methods=['post'], url_path='enroll')
     def enroll(self, request, pk=None):
         return self.do_apply(

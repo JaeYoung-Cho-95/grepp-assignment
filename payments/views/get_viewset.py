@@ -9,7 +9,9 @@ from assignment.common.api_errors import api_error
 
 from payments.models import Payment
 from payments.serializers.payment_list_serializer import PaymentListSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['결제'], summary='결제내역 조회')
 class MePaymentsViewSet(ListModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = PaymentListSerializer

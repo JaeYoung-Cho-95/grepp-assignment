@@ -7,8 +7,21 @@ from tests.serializers.test_apply_serializer import TestApplySerializer
 from payments.models import Payment
 from assignment.common.api_errors import api_error
 from assignment.common.base_registrable_viewset import BaseRegistrableViewSet
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes, extend_schema_view
 
 
+@extend_schema(tags=['시험'])
+@extend_schema_view(
+    list=extend_schema(
+        summary='시험 조회',
+        parameters=[
+            OpenApiParameter(name='status', type=OpenApiTypes.STR, required=False, description='필터: available만 조회', enum=['available']),
+            OpenApiParameter(name='sort',   type=OpenApiTypes.STR, required=False, description='정렬: created(기본) | popular', enum=['created', 'popular']),
+            OpenApiParameter(name='limit',  type=OpenApiTypes.INT, required=False, description='페이지 크기'),
+            OpenApiParameter(name='offset', type=OpenApiTypes.INT, required=False, description='페이지 오프셋'),
+        ]
+    )
+)
 class TestViewSet(BaseRegistrableViewSet):
     serializer_class = TestListSerializer
     apply_serializer_class = TestApplySerializer
@@ -18,6 +31,7 @@ class TestViewSet(BaseRegistrableViewSet):
         queryset = self._base_queryset_with_registration_flag(user)
         return self.apply_status_and_sort(queryset)
 
+    @extend_schema(request=TestApplySerializer, summary='시험 응시 신청')
     @action(detail=True, methods=['post'], url_path='apply')
     def apply(self, request, pk=None):
         return self.do_apply(
@@ -33,6 +47,7 @@ class TestViewSet(BaseRegistrableViewSet):
             payment_conflict_message='결제 정보가 이미 생성되었습니다.',
         )
 
+    @extend_schema(request=None, summary='시험응시 완료')
     @action(detail=True, methods=['post'], url_path='complete')
     def complete(self, request, pk=None):
         return self.do_complete(

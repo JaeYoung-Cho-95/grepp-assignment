@@ -11,12 +11,14 @@ from payments.models import Payment
 from courses.models import CourseRegistration
 from tests.models import TestRegistration
 from assignment.common.api_errors import api_error
+from drf_spectacular.utils import extend_schema
 
 
 class PaymentViewSet(GenericViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Payment.objects.all()
 
+    @extend_schema(tags=['결제'], request=None, summary='결제 취소')
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk):
         with transaction.atomic():
