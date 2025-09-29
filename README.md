@@ -375,6 +375,6 @@ sh make_coverage_html.sh
 
 - GiST 인덱싱 적용 : period = DateTimeRangeField 추가 후 GiST 인덱스 적용
 
-- 로컬에서 쿼리 로그 보면서 최적화 하기
+- 로컬에서 쿼리 로그 보면서 최적화
 
 - 리스트 캐시: Redis로 GET /courses, GET /tests 결과를 사용자+쿼리별로 30~60초 캐싱
