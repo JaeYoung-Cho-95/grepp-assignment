@@ -243,7 +243,7 @@ docker compose up -d
     [
       {
         "id": "number",
-        "amount": : "number",
+        "amount": "number",
         "payment_method": "string",
         "item_title": "string|null",
         "status": "pending|paid|cancelled|failed|refunded",
