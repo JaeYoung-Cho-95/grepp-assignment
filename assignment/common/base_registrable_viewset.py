@@ -6,14 +6,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED
 
-from assignment.config.pagination_config import CustomPagination
+from assignment.config.pagination_config import CustomCursorPagination
 from assignment.common.api_errors import api_error
 from payments.serializers.base_apply_serializer import BaseApplySerializer
 
 
 class BaseRegistrableViewSet(ListModelMixin, GenericViewSet):
     permission_classes = [IsAuthenticated]
-    pagination_class = CustomPagination
+    pagination_class = CustomCursorPagination
     apply_serializer_class = BaseApplySerializer
 
     def apply_status_and_sort(self, queryset):
