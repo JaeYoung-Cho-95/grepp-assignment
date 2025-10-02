@@ -36,6 +36,10 @@ class APIUser(HttpUser):
     def _rand_offset(self, limit):
         return random.choice([0, limit, limit * 2, limit * 3])
 
+    def _rand_page(self):
+        candidates = list(range(1, 11)) + [50, 100, 200, 500, 1000, 2000, 5000, 7000, 9000]
+        return random.choice(candidates)
+
     @tag("courses_list")
     @task
     def courses_list_default(self):
@@ -70,9 +74,33 @@ class APIUser(HttpUser):
         if not self.token:
             return
         limit = self._rand_limit()
-        offset = self._rand_offset(limit)
-        self.client.get(f"/courses?limit={limit}&offset={offset}", headers=self._auth(), name="courses:list:paged")
-        
+        page = self._rand_page()
+        self.client.get(f"/courses?limit={limit}&page={page}", headers=self._auth(), name="courses:list:paged")
+
+    @tag("courses_cursor_walk")
+    @task
+    def courses_cursor_walk(self):
+        if not self.token:
+            return
+        limit = self._rand_limit()
+        r = self.client.get(f"/courses?limit={limit}", headers=self._auth(), name="courses:list:cursor:first")
+        if r.status_code != 200:
+            return
+        try:
+            data = r.json()
+            hops = 0
+            next_url = data.get("next")
+            while next_url and hops < 3:
+                path = next_url.replace("http://localhost:8000", "")
+                r = self.client.get(path, headers=self._auth(), name="courses:list:cursor:next")
+                if r.status_code != 200:
+                    break
+                data = r.json()
+                next_url = data.get("next")
+                hops += 1
+        except Exception:
+            pass
+
     @tag("tests_list")
     @task
     def tests_list_default(self):
@@ -107,8 +135,32 @@ class APIUser(HttpUser):
         if not self.token:
             return
         limit = self._rand_limit()
-        offset = self._rand_offset(limit)
-        self.client.get(f"/tests?limit={limit}&offset={offset}", headers=self._auth(), name="tests:list:paged")
+        page = self._rand_page()
+        self.client.get(f"/tests?limit={limit}&page={page}", headers=self._auth(), name="tests:list:paged")
+
+    @tag("tests_cursor_walk")
+    @task
+    def tests_cursor_walk(self):
+        if not self.token:
+            return
+        limit = self._rand_limit()
+        r = self.client.get(f"/tests?limit={limit}", headers=self._auth(), name="tests:list:cursor:first")
+        if r.status_code != 200:
+            return
+        try:
+            data = r.json()
+            hops = 0
+            next_url = data.get("next")
+            while next_url and hops < 3:
+                path = next_url.replace("http://localhost:8000", "")
+                r = self.client.get(path, headers=self._auth(), name="tests:list:cursor:next")
+                if r.status_code != 200:
+                    break
+                data = r.json()
+                next_url = data.get("next")
+                hops += 1
+        except Exception:
+            pass
 
     @events.test_start.add_listener
     def _get_shared_token(environment, **kwargs):
