@@ -25,6 +25,8 @@ class BaseRegistrableViewSet(ListModelMixin, GenericViewSet):
         sort = self.request.query_params.get('sort', 'created')
         if sort == 'popular':
             return queryset.order_by('-registrations_count', '-created_at')
+        
+        print(queryset.explain(analyze=True, buffers=True))
         return queryset.order_by('-created_at')
 
     def do_apply(self, request, pk, *,

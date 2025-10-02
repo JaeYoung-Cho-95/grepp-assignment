@@ -77,9 +77,10 @@ def seed_courses(n=1_000_000, batch_size=10_000):
     batch = []
     created_total = 0
     for i in range(existing, n):
-        start_at = now - timedelta(days=(i % 5))
-        end_at = now + timedelta(days=((i % 10) + 1))
-        is_active = (i % 10) != 0
+        start_at = now - timedelta(days=random.randint(0, 180))
+        duration_days = random.randint(90, 720)
+        end_at = start_at + timedelta(days=duration_days)
+        is_active = (start_at <= now <= end_at)
         batch.append(Course(
             title=f"Course {i}",
             start_at=start_at,
@@ -108,9 +109,10 @@ def seed_tests(n=1_000_000, batch_size=10_000):
     batch = []
     created_total = 0
     for i in range(existing, n):
-        start_at = now - timedelta(days=(i % 3))
-        end_at = now + timedelta(days=((i % 5) + 1))
-        is_active = (i % 12) != 0
+        start_at = now - timedelta(days=random.randint(0, 180))
+        duration_days = random.randint(90, 720)
+        end_at = start_at + timedelta(days=duration_days)
+        is_active = (start_at <= now <= end_at)
         batch.append(Test(
             title=f"Test {i}",
             start_at=start_at,
