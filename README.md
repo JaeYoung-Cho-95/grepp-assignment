@@ -26,7 +26,14 @@ develop 브랜치는 성능 고도화 및 회고를 위한 페이지로 이용�
   - 변경 후: Cursor 적용
     <img src="./images/pagenation_query_2.png">
 
-- 부하테스트 ()
+- 부하테스트 
+  - 하드웨어: MacBook Air (Apple M4, 32GB RAM)
+  - 데이터 셋
+    - seed 스크립트 start_with_make_seed_data.sh 사용
+  - 조건
+    - user : 100
+    - ramp up : 5
+    - run_time : 3m
   - 변경 전: LimitOffset 적용 
     <img src="./images/load_test_pagenation_before.png">
   - 변경 후: Cursor 적용
