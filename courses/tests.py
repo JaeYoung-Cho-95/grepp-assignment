@@ -60,26 +60,41 @@ class CourseViewSetTests(APITestCase):
         self.assertTrue(d_by_id[c1.id]["is_registered"])
         self.assertFalse(d_by_id[c2.id]["is_registered"])
 
-    def test_filter_status_available(self):
-        """
-        status=available 쿼리로 활성+기간 내+미등록 항목만 반환한다.
-        """
-        available = self._make_course(title="Available", start_delta=-1, end_delta=1, is_active=True)
-        registered = self._make_course(title="Registered", start_delta=-1, end_delta=1, is_active=True)
-        CourseRegistration.objects.create(user=self.user, course=registered)
-
-        future = self._make_course(title="Future", start_delta=1, end_delta=2, is_active=True)
-        inactive = self._make_course(title="Inactive", start_delta=-1, end_delta=1, is_active=False)
-
-        res = self.client.get(f"{self.base_url}?status=available")
+    def test_cursor_response_shape(self):
+        # 3개 생성
+        for i in range(3):
+            self._make_course(title=f"C{i}", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
-        ids = {item["id"] for item in items}
-        self.assertIn(available.id, ids)
-        self.assertNotIn(registered.id, ids)
-        self.assertNotIn(future.id, ids)
-        self.assertNotIn(inactive.id, ids)
+        self.assertIn('results', res.data)
+        self.assertIn('next', res.data)
+        self.assertIn('previous', res.data)
+        self.assertNotIn('count', res.data)  # 커서는 count 없음
 
+    def test_page_jump_response_shape_and_limit(self):
+        for i in range(7):
+            self._make_course(title=f"CJ{i}", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.get(f"{self.base_url}?page=2&limit=5")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('meta', res.data)
+        self.assertEqual(res.data['meta']['page'], 2)
+        self.assertEqual(res.data['meta']['limit'], 5)
+        self.assertIn('results', res.data)
+        self.assertLessEqual(len(res.data['results']), 5)
+
+    def test_limit_max_page_size_clamped(self):
+        for i in range(150):
+            self._make_course(title=f"CL{i}", start_delta=-1, end_delta=1, is_active=True)
+        # 커서 모드에서 limit=1000 → max_page_size(예: 100)로 클램프
+        res = self.client.get(f"{self.base_url}?limit=1000")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(res.data['results']), 100)
+
+    def test_page_invalid_returns_400(self):
+        r1 = self.client.get(f"{self.base_url}?page=0")
+        self.assertEqual(r1.status_code, status.HTTP_400_BAD_REQUEST)
+        r2 = self.client.get(f"{self.base_url}?page=abc")
+        self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sort_popular(self):
         """

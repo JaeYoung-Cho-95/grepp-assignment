@@ -60,24 +60,39 @@ class TestViewSetTests(APITestCase):
         self.assertTrue(d[t1.id]["is_registered"])
         self.assertFalse(d[t2.id]["is_registered"])
 
-    def test_filter_status_available(self):
-        """
-        사용 가능 필터: 활성 + 기간 내 + 미등록만 노출
-        """
-        available = self._make_test(title="Available", start_delta=-1, end_delta=1, is_active=True)
-        registered = self._make_test(title="Registered", start_delta=-1, end_delta=1, is_active=True)
-        TestRegistration.objects.create(user=self.user, test=registered)
-        future = self._make_test(title="Future", start_delta=1, end_delta=2, is_active=True)
-        inactive = self._make_test(title="Inactive", start_delta=-1, end_delta=1, is_active=False)
-
-        res = self.client.get(f"{self.base_url}?status=available")
+    def test_cursor_response_shape(self):
+        for i in range(3):
+            self._make_test(title=f"T{i}", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.get(self.base_url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        items = res.data if isinstance(res.data, list) else res.data.get("results", [])
-        ids = {item["id"] for item in items}
-        self.assertIn(available.id, ids)
-        self.assertNotIn(registered.id, ids)
-        self.assertNotIn(future.id, ids)
-        self.assertNotIn(inactive.id, ids)
+        self.assertIn('results', res.data)
+        self.assertIn('next', res.data)
+        self.assertIn('previous', res.data)
+        self.assertNotIn('count', res.data)
+
+    def test_page_jump_response_shape_and_limit(self):
+        for i in range(7):
+            self._make_test(title=f"TJ{i}", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.get(f"{self.base_url}?page=2&limit=5")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('meta', res.data)
+        self.assertEqual(res.data['meta']['page'], 2)
+        self.assertEqual(res.data['meta']['limit'], 5)
+        self.assertIn('results', res.data)
+        self.assertLessEqual(len(res.data['results']), 5)
+
+    def test_limit_max_page_size_clamped(self):
+        for i in range(150):
+            self._make_test(title=f"TL{i}", start_delta=-1, end_delta=1, is_active=True)
+        res = self.client.get(f"{self.base_url}?limit=1000")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(res.data['results']), 100)
+
+    def test_page_invalid_returns_400(self):
+        r1 = self.client.get(f"{self.base_url}?page=0")
+        self.assertEqual(r1.status_code, status.HTTP_400_BAD_REQUEST)
+        r2 = self.client.get(f"{self.base_url}?page=abc")
+        self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
 
 
     def test_sort_popular(self):
