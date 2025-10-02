@@ -35,6 +35,15 @@ develop 브랜치는 성능 고도화 및 회고를 위한 페이지로 이용�
     <img src="./images/load_test_pagenation_before.png">
   - 변경 후: Cursor 적용
     <img src="./images/load_test_pagenation_after.png">
+  - 테스트 요약
+    - 변경 전
+      - rps : 2000
+      - p95 : 2400
+      - p99 : 69.4
+    - 변경 후 
+      - rps : 225
+      - p95 : 8
+      - p99 : 251
 
 - 참고
   - PostgreSQL 은 정확성을 위해 COUNT(*) 는 전체 범위를 스캔(MySQL 은 row count 를 메타 데이터에 저장해서 조건이 없으면 O(1) 에 가깝게 반환)
