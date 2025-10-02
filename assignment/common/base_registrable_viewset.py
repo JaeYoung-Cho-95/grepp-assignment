@@ -19,14 +19,12 @@ class BaseRegistrableViewSet(ListModelMixin, GenericViewSet):
     def apply_status_and_sort(self, queryset):
         status_param = self.request.query_params.get('status')
         if status_param == 'available':
-            now = timezone.now()
-            queryset = queryset.filter(is_active=True, is_registered=False, start_at__lte=now, end_at__gte=now)
+            queryset = queryset.filter(is_active=True, is_registered=False)
 
         sort = self.request.query_params.get('sort', 'created')
         if sort == 'popular':
             return queryset.order_by('-registrations_count', '-created_at')
         
-        print(queryset.explain(analyze=True, buffers=True))
         return queryset.order_by('-created_at')
 
     def do_apply(self, request, pk, *,
